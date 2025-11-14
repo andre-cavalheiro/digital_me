@@ -1,0 +1,17 @@
+API_ROOT = "/api/v1"
+
+HEALTH_CHECK = "/health"
+HEALTH_CHECK_VELINI = "/health/velini"
+
+ORGANIZATIONS = "/organizations"
+ORGANIZATIONS_SELF = f"{ORGANIZATIONS}/self"
+
+USERS = "/users"
+USERS_SELF = f"{USERS}/self"
+USERS_ID = f"{USERS}/{{id_}}"
+
+ADMIN = "/admin"
+ADMIN_ORGANIZATIONS = f"{ADMIN}/organizations"
+
+PLUGINS = "/plugins"
+PLUGINS_ID = f"{PLUGINS}/{{id_}}"
