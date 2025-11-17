@@ -21,15 +21,15 @@ ALEMBIC_MIGRATIONS_DIR = $(ALEMBIC_ROOT_DIR)/migrations/versions
 
 PYTHON_EXECUTABLE := PYTHONPATH=$(PWD)/src $(VENV_PATH)/bin/python
 
-DOCKER_IMAGE =
+DOCKER_IMAGE = andrecavalheiro/digital-me-api
 DOCKERFILE_PATH = ./deploy/docker/fury_api.Dockerfile
 
 KUBERNETES_CLUSTER = kratos
-KUBERNETES_NAMESPACE =
+KUBERNETES_NAMESPACE = digital-me
 
 PROD_SECRETS_FILE = .env.prod
 
-HELM_CHART_NAME = fury-api
+HELM_CHART_NAME = digital-me-api
 HELM_CHART_PATH = ./deploy/helm
 
 ################################################################################

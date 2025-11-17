@@ -1,5 +1,5 @@
 apiVersion: v2
-name: reach-usecase-webapp
-description: A Helm chart for your Node.js application
+name: digital-me-webapp
+description: Digital Me Web App - AI-assisted writing interface
 version: 0.1.0
-appVersion: "1.0.0" 
+appVersion: "1.0" 

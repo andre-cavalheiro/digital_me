@@ -1,10 +1,10 @@
 apiVersion: v2
-name: fury-api
-description: A Helm chart for Kubernetes
+name: digital-me-api
+description: Digital Me API - Backend for AI-assisted writing platform
 
 type: application
 version: 0.1.0
-appVersion: "1.16.0"
+appVersion: "1.0"
 
 # Add PostgreSQL as a dependency
 dependencies:

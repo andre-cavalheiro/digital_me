@@ -1,5 +1,0 @@
-- Adjust metadata in `halo_webapp/app/layout.tsx``
-- Adjust project title in `halo_webapp/src/components/sidebar.tsx`
-- Adjust variables in `halo_webapp/Makefile`
-- Adjust helm app metadata `halo_webapp/deploy/helm/Chart.yaml` and values `halo_webapp/deploy/helm/values.yaml`
-- Possibly adjuts the types of plugins you'll support `halo_webapp/src/lib/plugin-data-sources.ts`

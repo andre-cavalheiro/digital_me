@@ -69,8 +69,8 @@ class AppSettings(FuryBaseSettings):
 
     DEBUG: bool = True
     ENVIRONMENT: str = "dev"
-    NAME: str = "Fury API"
-    SLUG: str = "fury_api"
+    NAME: str = "Digital Me API"
+    SLUG: str = "digital_me_api"
     VERSION: str = version
 
     @property
@@ -227,9 +227,9 @@ class OpenAPISettings(FuryBaseSettings):
 
     CONTACT_NAME: str = "Andre Cavalheiro"
     CONTACT_EMAIL: str = "andre@cavalheiro.io"
-    TITLE: str | None = "Fury API"
+    TITLE: str | None = "Digital Me API"
     VERSION: str = f"v{version}"
-    DESCRIPTION: str = "Fury API is a REST API for several projects by Cavalheiro"
+    DESCRIPTION: str = "API for Digital Me - AI-assisted writing with content aggregation from curated sources"
     SCHEMA_PATH: str = "/api/schema"
 
 

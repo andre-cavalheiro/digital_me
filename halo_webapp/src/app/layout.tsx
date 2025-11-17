@@ -4,8 +4,8 @@ import { AuthProvider } from "@/lib/auth/provider"
 import { ThemeProvider } from "@/components/theme-provider"
 
 export const metadata = {
-  title: "Halo Webapp",
-  description: "A general purpose NextJS webapp",
+  title: "Digital Me",
+  description: "AI-assisted writing with content from your curated sources",
   icons: {
     icon: "/favicon.ico",
   },

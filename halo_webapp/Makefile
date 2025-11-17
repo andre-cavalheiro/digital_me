@@ -3,13 +3,13 @@ MAKEFLAGS += --no-print-directory --silent
 ################################################################################
 # Makefile Variables
 ################################################################################
-DOCKER_IMAGE = andrecavalheiro/...
+DOCKER_IMAGE = andrecavalheiro/digital-me-webapp
 DOCKERFILE_PATH = ./deploy/Dockerfile
 
 KUBERNETES_CLUSTER = kratos
-KUBERNETES_NAMESPACE = ...
+KUBERNETES_NAMESPACE = digital-me
 
-HELM_SERVICE = ...
+HELM_SERVICE = digital-me-webapp
 ################################################################################
 # Default
 ################################################################################

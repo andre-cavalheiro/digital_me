@@ -43,9 +43,9 @@ export function Sidebar() {
         {/* Product Name */}
         <div className={clsx("transition-all", collapsed && "hidden")}>
           <h1 className="text-lg font-semibold leading-tight text-foreground">
-            Reach Usecase
+            Digital Me
           </h1>
-          <p className="text-xs text-muted-foreground -mt-0.5">/blog folder generation</p>
+          <p className="text-xs text-muted-foreground -mt-0.5">AI Writing Assistant</p>
         </div>
 
         {/* Collapse Toggle */}

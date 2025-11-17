@@ -1,7 +1,7 @@
 replicaCount: 1
 
 image:
-  repository: andrecavalheiro/reach-usecase-webapp
+  repository: andrecavalheiro/digital-me-webapp
   tag: latest
   pullPolicy: Always
 

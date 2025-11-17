@@ -1,6 +1,7 @@
 {
-  "name": "halo-webapp",
+  "name": "digital-me-webapp",
   "version": "0.1.0",
+  "description": "Digital Me - AI-assisted writing platform",
   "private": true,
   "scripts": {
     "dev": "next dev --turbopack",
