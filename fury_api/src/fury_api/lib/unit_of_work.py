@@ -15,7 +15,13 @@ from fury_api.lib.settings import config
 if TYPE_CHECKING:
     from sqlmodel.ext.asyncio.session import AsyncSession
 
-__all__ = ["AsyncAbstractUnitOfWork", "AsyncSqlAlchemyUnitOfWork", "UnitOfWork", "UnitOfWorkError", "UnitOfWorkRepositoryNotFoundError"]
+__all__ = [
+    "AsyncAbstractUnitOfWork",
+    "AsyncSqlAlchemyUnitOfWork",
+    "UnitOfWork",
+    "UnitOfWorkError",
+    "UnitOfWorkRepositoryNotFoundError",
+]
 
 T = TypeVar("T", bound=SQLModel)
 
@@ -42,7 +48,6 @@ class AsyncSqlAlchemyUnitOfWork(AsyncAbstractUnitOfWork):
     def __init__(
         self, session_factory: sessionmaker, autocommit: bool = False, autocommit_ignore_nested: bool = True
     ) -> None:
-
         self._session_factory = session_factory
         self.session: AsyncSession | None = None
 
@@ -61,7 +66,6 @@ class AsyncSqlAlchemyUnitOfWork(AsyncAbstractUnitOfWork):
         return self._context_depth == 1
 
     async def _begin_new_session(self):
-
         self.session = self._session_factory()
         await self.post_begin_session_hook()
         return self.session
@@ -141,10 +145,30 @@ class UnitOfWork(AsyncSqlAlchemyUnitOfWork):
         from fury_api.domain.organizations.repository import OrganizationRepository
         from fury_api.domain.users.repository import UserRepository
         from fury_api.domain.plugins.repository import PluginRepository
+        from fury_api.domain.documents.repository import DocumentRepository, DocumentContentRepository
+        from fury_api.domain.conversations.repository import ConversationRepository, MessageRepository
+        from fury_api.domain.sources.repository import (
+            SourceRepository,
+            ContentRepository,
+            SourceGroupRepository,
+            SourceGroupMemberRepository,
+            DocumentSourceConfigRepository,
+            CitationRepository,
+        )
 
         self.organizations = OrganizationRepository()
         self.users = UserRepository()
         self.plugins = PluginRepository()
+        self.documents = DocumentRepository()
+        self.document_contents = DocumentContentRepository()
+        self.conversations = ConversationRepository()
+        self.messages = MessageRepository()
+        self.sources = SourceRepository()
+        self.contents = ContentRepository()
+        self.source_groups = SourceGroupRepository()
+        self.source_group_members = SourceGroupMemberRepository()
+        self.document_source_configs = DocumentSourceConfigRepository()
+        self.citations = CitationRepository()
 
         self._repos = {
             repo._model_cls: repo
@@ -152,6 +176,16 @@ class UnitOfWork(AsyncSqlAlchemyUnitOfWork):
                 self.organizations,
                 self.users,
                 self.plugins,
+                self.documents,
+                self.document_contents,
+                self.conversations,
+                self.messages,
+                self.sources,
+                self.contents,
+                self.source_groups,
+                self.source_group_members,
+                self.document_source_configs,
+                self.citations,
             )
         }
 
@@ -168,6 +202,16 @@ class UnitOfWork(AsyncSqlAlchemyUnitOfWork):
         del self.organizations
         del self.users
         del self.plugins
+        del self.documents
+        del self.document_contents
+        del self.conversations
+        del self.messages
+        del self.sources
+        del self.contents
+        del self.source_groups
+        del self.source_group_members
+        del self.document_source_configs
+        del self.citations
 
     def get_repository(self, model_cls: type[T]) -> GenericSqlExtendedRepository[T]:
         """Return the repository for the given model class."""

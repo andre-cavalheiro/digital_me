@@ -41,6 +41,7 @@ __all__ = ["lifespan", "on_startup", "on_shutdown"]
 class State(TypedDict):
     logger: logging.Logger
 
+
 @asynccontextmanager
 async def lifespan(app: FastAPI | None = None) -> AsyncGenerator[State, None]:
     await on_startup()

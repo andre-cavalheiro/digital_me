@@ -23,7 +23,7 @@ services:
       FURY_API_SERVER_RELOAD: "true"
       FURY_API_APP_ENVIRONMENT: "dev"
       # Database
-      FURY_DB_URL: postgresql+psycopg://postgres:postgres@postgres:5432/fury-local
+      FURY_DB_URL: postgresql+psycopg://postgres:postgres@postgres:5432/digital-me-local
       # DB Schema
       FURY_DB_SCHEMA: platform
       FURY_API_ELASTIC_APM_ENABLED: "false"
@@ -42,7 +42,7 @@ services:
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: fury-local
+      POSTGRES_DB: digital-me-local
 
 networks:
   fury-network:

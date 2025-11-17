@@ -30,6 +30,7 @@ from .services import OrganizationsService
 user_auth_router = APIRouter(dependencies=[Security(get_current_user)])
 user_auth_new_organization_router = APIRouter(dependencies=[Depends(get_current_user_new_organization)])
 
+
 @user_auth_router.get(paths.ORGANIZATIONS_SELF, response_model=OrganizationRead)
 async def get_organization_me(
     organization_service: Annotated[
@@ -64,10 +65,7 @@ async def update_organization_me(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Organization not found")
 
     try:
-        updated_organization = await organization_service.update_item(
-            current_user.organization_id,
-            organization_update
-        )
+        updated_organization = await organization_service.update_item(current_user.organization_id, organization_update)
         return updated_organization
     except exceptions.OrganizationsError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
@@ -135,7 +133,6 @@ async def create_organization(
     current_user: Annotated[User, Depends(get_current_user_new_organization)],
     # stripe_client: Annotated[StripeClient, Depends(get_stripe_client)],
     # prefect_client: Annotated[PrefectClient, Depends(get_prefect_client)],
-
 ) -> Organization:
     existing_user = await users_service.get_user_by_email(email=current_user.email)
     if existing_user is not None:
@@ -143,10 +140,7 @@ async def create_organization(
 
     organization_obj = Organization.model_validate(organization)
     try:
-        new_organization = await organization_service.create_organization_with_user(
-            organization_obj,
-            current_user
-        )
+        new_organization = await organization_service.create_organization_with_user(organization_obj, current_user)
 
         # Stripe
         """
@@ -164,6 +158,7 @@ async def create_organization(
     except exceptions.OrganizationsError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
     return new_organization
+
 
 organization_router = APIRouter()
 organization_router.include_router(user_auth_router)

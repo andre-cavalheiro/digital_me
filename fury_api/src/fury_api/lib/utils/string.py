@@ -1,4 +1,3 @@
-
 __all__ = ["snake_case_to_camel", "snake_case_to_pascal"]
 
 

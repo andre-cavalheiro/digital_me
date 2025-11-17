@@ -22,7 +22,7 @@ __all__ = [
     "get_uow",
     "get_uow_ro",
     "get_uow_any_tenant",
-    "get_uow_query_ro",         # This is probably not needed anymore and should be deleted.
+    "get_uow_query_ro",  # This is probably not needed anymore and should be deleted.
     "get_uow_tenant",
     "get_uow_tenant_ro",
     # filters

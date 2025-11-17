@@ -35,7 +35,6 @@ def get_service(
     return dependency
 
 
-
 def get_service_admin(
     service_type: ServiceType,
     read_only: bool = False,

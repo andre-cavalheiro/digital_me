@@ -9,10 +9,10 @@ export interface PaginatedResponse<T> {
 }
 
 export interface User {
-  id: number
+  id: number | null | undefined
   name: string
   email: string
-  organization_id: number
+  organization_id: number | null | undefined
 }
 
 export interface Organization {

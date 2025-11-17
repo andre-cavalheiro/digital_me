@@ -16,6 +16,16 @@ class ServiceType(Enum):
     USERS = "users"
     PLUGINS = "plugins"
     ORGANIZATIONS = "organizations"
+    DOCUMENTS = "documents"
+    DOCUMENT_CONTENTS = "document_contents"
+    CONVERSATIONS = "conversations"
+    MESSAGES = "messages"
+    SOURCES = "sources"
+    CONTENTS = "contents"
+    SOURCE_GROUPS = "source_groups"
+    SOURCE_GROUP_MEMBERS = "source_group_members"
+    DOCUMENT_SOURCE_CONFIGS = "document_source_configs"
+    CITATIONS = "citations"
 
 
 ServiceDependency = NamedTuple("ServiceDependency", [("service_type", ServiceType), ("kwargs", dict[str, Any])])
@@ -32,7 +42,43 @@ ServiceConfig = NamedTuple(
 
 class ServiceFactory:
     # Useful in edge cases to side-pass standard nomenclature (see self._get_config)
-    _service_configs: ClassVar[dict[ServiceType, ServiceConfig]] = {}
+    _service_configs: ClassVar[dict[ServiceType, ServiceConfig]] = {
+        ServiceType.DOCUMENT_CONTENTS: ServiceConfig(
+            domain="documents",
+            class_name="DocumentContentsService",
+            dependencies={},
+        ),
+        ServiceType.MESSAGES: ServiceConfig(
+            domain="conversations",
+            class_name="MessagesService",
+            dependencies={},
+        ),
+        ServiceType.CONTENTS: ServiceConfig(
+            domain="sources",
+            class_name="ContentsService",
+            dependencies={},
+        ),
+        ServiceType.SOURCE_GROUPS: ServiceConfig(
+            domain="sources",
+            class_name="SourceGroupsService",
+            dependencies={},
+        ),
+        ServiceType.SOURCE_GROUP_MEMBERS: ServiceConfig(
+            domain="sources",
+            class_name="SourceGroupMembersService",
+            dependencies={},
+        ),
+        ServiceType.DOCUMENT_SOURCE_CONFIGS: ServiceConfig(
+            domain="sources",
+            class_name="DocumentSourceConfigsService",
+            dependencies={},
+        ),
+        ServiceType.CITATIONS: ServiceConfig(
+            domain="sources",
+            class_name="CitationsService",
+            dependencies={},
+        ),
+    }
 
     @staticmethod
     def _get_service_class(domain: str, class_name: str) -> type[SqlService]:

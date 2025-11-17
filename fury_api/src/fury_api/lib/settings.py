@@ -70,7 +70,8 @@ class AppSettings(FuryBaseSettings):
     DEBUG: bool = True
     ENVIRONMENT: str = "dev"
     NAME: str = "Digital Me API"
-    SLUG: str = "digital_me_api"
+    # Keep this aligned with the actual package name so dynamic imports (e.g. services) work.
+    SLUG: str = module_name
     VERSION: str = version
 
     @property
@@ -118,9 +119,9 @@ class APISettings(FuryBaseSettings):
 
     AUTH_ALGORITHM: str = "RS256"
     AUTH_ISSUER: str = "local"
-    AUTH_DOMAIN: (
-        str | None
-    ) = None  # Not being  used right now, only needed in the future if we want to support multiple issuers.
+    AUTH_DOMAIN: str | None = (
+        None  # Not being  used right now, only needed in the future if we want to support multiple issuers.
+    )
 
     ADMIN_TOKEN: SecretStr | None = None
 

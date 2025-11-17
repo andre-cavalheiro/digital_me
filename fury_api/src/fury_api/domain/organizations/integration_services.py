@@ -13,9 +13,8 @@ if TYPE_CHECKING:
 # Prefect
 # ####################
 
-async def create_prefect_support_user(
-    uow: UnitOfWork, organization_id: int, prefect_client: "PrefectClient"
-) -> None:
+
+async def create_prefect_support_user(uow: UnitOfWork, organization_id: int, prefect_client: "PrefectClient") -> None:
     """
     Create a system user for an organization and push credentials to Prefect.
 
@@ -31,7 +30,9 @@ async def create_prefect_support_user(
 
 
 async def _push_prefect_secret(
-    prefect_client: "PrefectClient", organization_id: int, system_token: str,
+    prefect_client: "PrefectClient",
+    organization_id: int,
+    system_token: str,
 ) -> None:
     """
     Push system user credentials to Prefect as a secret.
@@ -53,6 +54,7 @@ async def _push_prefect_secret(
 # ####################
 # Stripe
 # ####################
+
 
 def create_stripe_customer(
     stripe_client: "StripeClient",
@@ -82,9 +84,7 @@ def create_stripe_customer(
     return organization
 
 
-async def get_organization_by_stripe_customer_id(
-    uow: UnitOfWork, stripe_customer_id: str
-) -> Organization | None:
+async def get_organization_by_stripe_customer_id(uow: UnitOfWork, stripe_customer_id: str) -> Organization | None:
     """
     Retrieve an organization by its Stripe customer ID.
 

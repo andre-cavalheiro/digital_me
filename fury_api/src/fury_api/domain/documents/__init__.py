@@ -1,0 +1,3 @@
+"""
+Documents domain module.
+"""

@@ -3,7 +3,7 @@ from typing import Any
 import msgspec
 from sqlmodel import SQLModel
 
-__all__ = ["json_serializer", "json_deserializer", "msgpack_serializer", "msgpack_deserializer"]
+__all__ = ["json_serializer", "json_deserializer"]
 
 
 def _default_enc_hook(val: Any) -> Any:
