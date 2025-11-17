@@ -10,7 +10,8 @@ import {
   onAuthStateChanged,
   type User as UserAuth,
 } from "firebase/auth"
-import { getUser, getOrganization, createOrganization } from "@/lib/api/client"
+import { fetchCurrentUser } from "@/lib/api/users"
+import { fetchOrganization, createOrganization } from "@/lib/api/organizations"
 import type { User, Organization } from "@/lib/api/types"
 import { auth } from "./firebase"
 import { AuthContext } from "./context"
@@ -35,14 +36,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setUserAuth(firebaseUser)
 
       try {
-        let resolvedUser = await getUser()
+        let resolvedUser = await fetchCurrentUser()
 
         const provisionOrganization = async (): Promise<Organization> => {
           try {
             const createdOrganization = await createOrganization(
               firebaseUser.displayName?.trim() || "New Org",
             )
-            resolvedUser = await getUser()
+            resolvedUser = await fetchCurrentUser()
             return createdOrganization
           } catch (createError) {
             if (
@@ -50,8 +51,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               createError.response?.status === 409
             ) {
               // Organization already prepared in backend, just refresh local state
-              resolvedUser = await getUser()
-              return await getOrganization()
+              resolvedUser = await fetchCurrentUser()
+              return await fetchOrganization()
             }
             throw createError
           }
@@ -63,7 +64,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           resolvedOrganization = await provisionOrganization()
         } else {
           try {
-            resolvedOrganization = await getOrganization()
+            resolvedOrganization = await fetchOrganization()
           } catch (organizationError) {
             if (
               isAxiosError(organizationError) &&
