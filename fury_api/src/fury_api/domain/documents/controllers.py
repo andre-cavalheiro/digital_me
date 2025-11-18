@@ -18,9 +18,8 @@ from .models import (
     DocumentCreate,
     DocumentRead,
     DocumentUpdate,
-    DocumentContent,
     DocumentContentRead,
-    DocumentContentUpdate,
+    DocumentContentUpsert,
 )
 from fury_api.lib.security import get_current_user
 from fury_api.lib.db.base import Identifier
@@ -40,15 +39,6 @@ DOCUMENTS_FILTERS_DEFINITION = ModelFilterAndSortDefinition(
     allowed_sorts={"id", "title", "created_at", "updated_at"},
 )
 
-DOCUMENT_CONTENT_FILTERS_DEFINITION = ModelFilterAndSortDefinition(
-    model=DocumentContent,
-    allowed_filters={
-        "id": get_default_ops_for_type(Identifier),
-        "document_id": get_default_ops_for_type(int),
-    },
-    allowed_sorts={"id", "document_id", "updated_at"},
-)
-
 
 @document_router.post(paths.DOCUMENTS, response_model=DocumentRead, status_code=status.HTTP_201_CREATED)
 async def create_document(
@@ -65,9 +55,12 @@ async def create_document(
     ],
     current_user: Annotated[User, Depends(get_current_user)],
 ) -> Document:
-    converted_document = Document.model_validate(document)
-    converted_document.organization_id = current_user.organization_id
-    converted_document.user_id = current_user.id
+    converted_document = Document(
+        title=document.title,
+        metadata_=document.metadata_,
+        organization_id=current_user.organization_id,
+        user_id=current_user.id,
+    )
     return await document_service.create_item(converted_document)
 
 
@@ -150,7 +143,7 @@ async def delete_document(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
 
 
-@document_router.get(paths.DOCUMENT_CONTENT, response_model=DocumentContentRead)
+@document_router.get(paths.DOCUMENT_CONTENT, response_model=list[DocumentContentRead])
 async def get_document_content(
     id_: int,
     document_content_service: Annotated[
@@ -163,32 +156,17 @@ async def get_document_content(
             )
         ),
     ],
-    filters_parser: Annotated[
-        FiltersAndSortsParser, Depends(get_models_filters_parser_factory(DOCUMENT_CONTENT_FILTERS_DEFINITION))
-    ],
-) -> DocumentContentRead:
-    raise Exception("Not Implemented Yet")
+) -> list[DocumentContentRead]:
+    return await document_content_service.get_sections(id_)
 
 
-@document_router.put(paths.DOCUMENT_CONTENT, response_model=DocumentContentRead)
+@document_router.put(paths.DOCUMENT_CONTENT, response_model=list[DocumentContentRead])
 async def replace_document_content(
     id_: int,
-    document_content_update: DocumentContentUpdate,
+    document_content_update: DocumentContentUpsert,
     document_content_service: Annotated[
         DocumentContentsService,
         Depends(get_service(ServiceType.DOCUMENT_CONTENTS)),
     ],
-) -> DocumentContentRead:
-    raise Exception("Not Implemented Yet")
-
-
-@document_router.patch(paths.DOCUMENT_CONTENT, response_model=DocumentContentRead)
-async def patch_document_content(
-    id_: int,
-    document_content_update: DocumentContentUpdate,
-    document_content_service: Annotated[
-        DocumentContentsService,
-        Depends(get_service(ServiceType.DOCUMENT_CONTENTS)),
-    ],
-) -> DocumentContentRead:
-    raise Exception("Not Implemented Yet")
+) -> list[DocumentContentRead]:
+    return await document_content_service.replace_sections(id_, document_content_update.sections)
