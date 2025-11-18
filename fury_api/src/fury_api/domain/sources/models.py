@@ -315,10 +315,11 @@ class DocumentSourceConfigUpdate(BaseSQLModel):
 
 
 class CitationBase(BaseSQLModel):
-    document_id: int
+    document_id: int | None = Field(default=None, alias="documentId")
     content_id: int
     citation_number: int
-    position_in_doc: int | None = None
+    position_in_doc: int | None = Field(default=None, alias="position")
+    section_index: int | None = Field(default=None, alias="sectionIndex")
 
 
 class Citation(CitationBase, BigIntIDModel, table=True):
@@ -347,12 +348,19 @@ class CitationRead(CitationBase):
 
 
 class CitationCreate(CitationBase):
-    document_id: int = Field()
+    model_config = ConfigDict(extra="ignore", populate_by_name=True)
+
+    citation_number: int = Field(alias="marker")
+    position_in_doc: Optional[int] = Field(default=None, alias="position")
+    section_index: Optional[int] = Field(default=None, alias="sectionIndex")
+
+    document_id: int = Field(default=None)
     content_id: int = Field()
-    citation_number: int = Field()
-    position_in_doc: Optional[int] = None
 
 
 class CitationUpdate(BaseSQLModel):
-    citation_number: int | None = None
-    position_in_doc: int | None = None
+    model_config = ConfigDict(extra="ignore", populate_by_name=True)
+
+    citation_number: int | None = Field(default=None, alias="marker")
+    position_in_doc: int | None = Field(default=None, alias="position")
+    section_index: int | None = Field(default=None, alias="sectionIndex")
