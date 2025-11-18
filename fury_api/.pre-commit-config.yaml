@@ -31,16 +31,19 @@ repos:
       - id: ruff
         args: [--fix]
 
-  - repo: https://github.com/fredrikaverpil/creosote.git
-    rev: v3.2.0
-    hooks:
-      - id: creosote
-
   - repo: local
     hooks:
+      # Temporarily disabled due to incompatibility with Poetry's inline dict dependency format
+      # - id: creosote
+      #   name: creosote
+      #   entry: bash -c 'cd fury_api && poetry run creosote'
+      #   language: system
+      #   types: [python]
+      #   pass_filenames: false
+      #   always_run: true
       - id: tests
         name: run tests
-        entry: make test
+        entry: make -C fury_api test
         language: system
         types: [python]
         pass_filenames: false
