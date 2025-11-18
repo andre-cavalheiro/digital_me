@@ -39,6 +39,7 @@ DOCUMENTS_FILTERS_DEFINITION = ModelFilterAndSortDefinition(
     allowed_sorts={"id", "title", "created_at", "updated_at"},
 )
 
+
 @document_router.post(paths.DOCUMENTS, response_model=DocumentRead, status_code=status.HTTP_201_CREATED)
 async def create_document(
     document: DocumentCreate,

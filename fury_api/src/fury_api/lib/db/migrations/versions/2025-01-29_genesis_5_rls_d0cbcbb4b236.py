@@ -56,6 +56,9 @@ def schema_upgrades() -> None:
                 EXECUTE 'ALTER DEFAULT PRIVILEGES IN SCHEMA ' || current_schema || ' GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO tenant_user';
                 EXECUTE 'GRANT USAGE ON ALL SEQUENCES IN SCHEMA ' || current_schema || ' TO tenant_user';
                 EXECUTE 'ALTER DEFAULT PRIVILEGES IN SCHEMA ' || current_schema || ' GRANT USAGE ON SEQUENCES TO tenant_user';
+
+                -- Grant tenant_user role to current database user so they can SET ROLE
+                EXECUTE 'GRANT tenant_user TO ' || current_user;
             END;
             $$ LANGUAGE plpgsql;
             """
@@ -76,6 +79,9 @@ def schema_upgrades() -> None:
                 EXECUTE 'ALTER DEFAULT PRIVILEGES IN SCHEMA ' || current_schema || ' GRANT SELECT ON TABLES TO tenant_user_ro';
                 EXECUTE 'GRANT USAGE ON ALL SEQUENCES IN SCHEMA ' || current_schema || ' TO tenant_user_ro';
                 EXECUTE 'ALTER DEFAULT PRIVILEGES IN SCHEMA ' || current_schema || ' GRANT USAGE ON SEQUENCES TO tenant_user_ro';
+
+                -- Grant tenant_user_ro role to current database user so they can SET ROLE
+                EXECUTE 'GRANT tenant_user_ro TO ' || current_user;
             END;
             $$ LANGUAGE plpgsql;
             """

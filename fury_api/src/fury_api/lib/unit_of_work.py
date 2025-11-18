@@ -67,7 +67,7 @@ class AsyncSqlAlchemyUnitOfWork(AsyncAbstractUnitOfWork):
 
     async def _begin_new_session(self):
         self.session = self._session_factory()
-        await self.post_begin_session_hook()
+        # Note: post_begin_session_hook is called in with_organization after organization_id is set
         return self.session
 
     async def __aenter__(self) -> AsyncSqlAlchemyUnitOfWork:
@@ -246,13 +246,19 @@ class UnitOfWork(AsyncSqlAlchemyUnitOfWork):
 
     async def post_begin_session_hook(self) -> None:
         """This method is called after creating a new session."""
+        # Skip if we're in a nested context - don't override the parent's role!
+        if self._context_depth > 1:
+            return
+
         if config.database.TENANT_ROLE_ENABLED and self.organization_id is not None:
             if self.query_user:
-                await self.session.exec(text(f"set session role {config.database.TENANT_QUERY_ROLE_RO}"))
+                role = config.database.TENANT_QUERY_ROLE_RO
             elif self.read_only:
-                await self.session.exec(text(f"set session role {config.database.TENANT_ROLE_RO}"))
+                role = config.database.TENANT_ROLE_RO
             else:
-                await self.session.exec(text(f"set session role {config.database.TENANT_ROLE}"))
+                role = config.database.TENANT_ROLE
+
+            await self.session.exec(text(f"set session role {role}"))
             await self.session.exec(text(f"set {config.database.TENANT_PARAMETER} = {self.organization_id}"))
 
     async def pre_commit_hook(self) -> None:
