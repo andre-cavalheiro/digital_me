@@ -26,9 +26,6 @@ DOCUMENT_SOURCE_CONFIG_GROUP = f"{DOCUMENT_SOURCE_CONFIG}/groups/{{group_id}}"
 DOCUMENT_SOURCE_CONFIG_SOURCE = f"{DOCUMENT_SOURCE_CONFIG}/sources/{{source_id}}"
 DOCUMENT_CITATIONS = f"{DOCUMENTS_ID}/citations"
 
-# Document content suggest
-DOCUMENT_CONTENT_SUGGEST = f"{DOCUMENTS_ID}/content/suggest"
-
 # Conversations
 CONVERSATIONS = "/conversations"
 CONVERSATIONS_ID = f"{CONVERSATIONS}/{{id_}}"

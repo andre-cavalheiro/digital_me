@@ -61,7 +61,7 @@ class DocumentContentsService(SqlService[DocumentContent]):
 
         await self.repository.delete_by_document_id(self.session, document_id)
         for section in ordered_sections:
-            await self.repository.add(self.session, section, commit=False)
+            await self.repository.add(self.session, section)
 
         await self.session.commit()
         return ordered_sections
