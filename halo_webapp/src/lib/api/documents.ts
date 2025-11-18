@@ -40,3 +40,21 @@ export async function createDocument(payload: { title?: string }): Promise<Docum
     },
   )
 }
+
+export async function updateDocumentTitle(id: number, title: string): Promise<Document> {
+  return withMock(
+    (() => {
+      const index = mockDocuments.findIndex((doc) => doc.id === id)
+      if (index >= 0) {
+        const updated = { ...mockDocuments[index], title, updated_at: new Date().toISOString() }
+        mockDocuments[index] = updated
+        return updated
+      }
+      return { id, title }
+    })(),
+    async () => {
+      const response = await api.put<Document>(`/documents/${id}`, { title })
+      return documentSchema.parse(response.data)
+    },
+  )
+}

@@ -1,32 +1,63 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
-import { fetchDocument, fetchDocumentContent, type Document, type DocumentContent } from "@/lib/api"
+import { toast } from "sonner"
+import { createCitation, fetchCitations, fetchDocument, fetchDocumentContent, saveDocumentContent, updateDocumentTitle, type Citation, type Document, type DocumentSection } from "@/lib/api"
 import { WorkspaceShell } from "@/components/layout/workspace-shell"
+import { SourcesPanel } from "@/components/panels/sources-panel"
+import { DocumentEditor } from "./document-editor"
+import { Input } from "@/components/ui/input"
+import { ArrowLeft, PanelLeftClose, PanelLeftOpen, PanelRightClose, PanelRightOpen } from "lucide-react"
 
 type Props = {
   documentId: number
 }
 
 type FetchState = "idle" | "loading" | "error"
+type SaveState = "idle" | "saving" | "error"
+
+const MAX_SELECTION_CONTEXT = 1200
 
 export function DocumentWorkspace({ documentId }: Props) {
   const router = useRouter()
   const [document, setDocument] = useState<Document | null>(null)
-  const [content, setContent] = useState<DocumentContent | null>(null)
+  const [sections, setSections] = useState<DocumentSection[]>([])
   const [status, setStatus] = useState<FetchState>("idle")
+  const [saveState, setSaveState] = useState<SaveState>("idle")
+  const [dirty, setDirty] = useState(false)
+  const [lastSavedAt, setLastSavedAt] = useState<string | null>(null)
+  const [selectionText, setSelectionText] = useState<string>("")
+  const [citations, setCitations] = useState<Citation[]>([])
+  const [showSources, setShowSources] = useState(true)
+  const [showAssistant, setShowAssistant] = useState(true)
+  const [leftWidth, setLeftWidth] = useState(320)
+  const [rightWidth, setRightWidth] = useState(360)
+  const initialLoadRef = useRef(true)
+  const debounceRef = useRef<NodeJS.Timeout | null>(null)
+  const suppressDirtyRef = useRef(false)
+  const [titleValue, setTitleValue] = useState("")
+  const [titleSaving, setTitleSaving] = useState(false)
 
   useEffect(() => {
     let mounted = true
     const load = async () => {
       setStatus("loading")
       try {
-        const [doc, docContent] = await Promise.all([fetchDocument(documentId), fetchDocumentContent(documentId)])
+        const [doc, docContent, docCitations] = await Promise.all([
+          fetchDocument(documentId),
+          fetchDocumentContent(documentId),
+          fetchCitations(documentId).catch(() => []),
+        ])
         if (mounted) {
           setDocument(doc)
-          setContent(docContent)
+          setTitleValue(doc.title)
+          suppressDirtyRef.current = true
+          setSections(docContent)
+          setLastSavedAt(latestUpdatedAt(docContent))
+          setCitations(docCitations)
           setStatus("idle")
+          setDirty(false)
         }
       } catch (error) {
         console.error("Failed to load document", error)
@@ -38,6 +69,110 @@ export function DocumentWorkspace({ documentId }: Props) {
       mounted = false
     }
   }, [documentId])
+
+  const wordCount = useMemo(() => sections.reduce((total, section) => total + countWords(section.content), 0), [sections])
+
+  useEffect(() => {
+    if (initialLoadRef.current) {
+      initialLoadRef.current = false
+      return
+    }
+    if (suppressDirtyRef.current) {
+      suppressDirtyRef.current = false
+      return
+    }
+    setDirty(true)
+    if (debounceRef.current) clearTimeout(debounceRef.current)
+    debounceRef.current = setTimeout(() => {
+      void persistSections()
+    }, 1000)
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current)
+    }
+  }, [sections])
+
+  const persistSections = async () => {
+    if (saveState === "saving") return
+    if (!dirty) return
+    setSaveState("saving")
+    try {
+      const saved = await saveDocumentContent(documentId, sectionsWithOrder(documentId, sections))
+      suppressDirtyRef.current = true
+      setSections(saved)
+      setDirty(false)
+      const updatedAt = latestUpdatedAt(saved) ?? new Date().toISOString()
+      setLastSavedAt(updatedAt)
+      setSaveState("idle")
+    } catch (error) {
+      console.error("Failed to save document", error)
+      setSaveState("error")
+      toast.error("Could not save document. We will keep your edits locally.")
+    }
+  }
+
+  const handleSectionsChange = (contents: string[]) => {
+    setSections((previous) => sectionsFromText(contents, documentId, previous))
+  }
+
+  const handleSelectionChange = (context: { text: string; start?: number; end?: number }) => {
+    const start = context.start ?? 0
+    const end = context.end ?? context.text.length
+    const slice = start !== end ? context.text.slice(Math.min(start, end), Math.max(start, end)) : ""
+    const next = (slice || context.text).trim()
+    setSelectionText(next.slice(0, MAX_SELECTION_CONTEXT))
+  }
+
+  const handleCitationDrop = (sectionIndex: number, position: number, contentId: number) => {
+    const marker = nextMarkerNumber(citations)
+    const markerText = `[${marker}]`
+    const absolutePosition = sectionAbsolutePosition(sections, sectionIndex, position)
+    setSections((previous) => {
+      const next = [...previous]
+      const target = next[sectionIndex]
+      if (!target) return previous
+      const before = target.content.slice(0, position)
+      const after = target.content.slice(position)
+      next[sectionIndex] = { ...target, content: `${before}${markerText}${after}` }
+      return next
+    })
+
+    setCitations((prev) => [...prev, { document_id: documentId, content_id: contentId, marker, position, section_index: sectionIndex }])
+
+    void createCitation(documentId, {
+      content_id: contentId,
+      marker,
+      position: absolutePosition,
+      section_index: sectionIndex,
+    }).catch((error) => {
+      console.error("Failed to persist citation", error)
+      toast.error("Could not save citation. The marker will stay locally.")
+    })
+  }
+
+  const handleTitleSave = async () => {
+    if (!document) return
+    const nextTitle = titleValue.trim()
+    if (!nextTitle || nextTitle === document.title || titleSaving) return
+    setTitleSaving(true)
+    try {
+      const updated = await updateDocumentTitle(document.id, nextTitle)
+      setDocument(updated)
+      setTitleValue(updated.title)
+    } catch (error) {
+      console.error("Failed to update title", error)
+      toast.error("Could not update title. Please try again.")
+      setTitleValue(document.title)
+    } finally {
+      setTitleSaving(false)
+    }
+  }
+
+  const handleTitleKey = (event: React.KeyboardEvent<HTMLDivElement>) => {
+    if (event.key === "Enter") {
+      event.preventDefault()
+      void handleTitleSave()
+    }
+  }
 
   if (status === "loading") {
     return (
@@ -68,52 +203,148 @@ export function DocumentWorkspace({ documentId }: Props) {
   }
 
   return (
-    <div className="flex h-full flex-col gap-4">
-      <header className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold">{document.title}</h1>
-          {(() => {
-            const latestUpdatedAt = content?.reduce<string | undefined>((latest, section) => {
-              if (section.updated_at && (!latest || new Date(section.updated_at) > new Date(latest))) {
-                return section.updated_at
-              }
-              return latest
-            }, undefined)
-            return (
-              <p className="text-muted-foreground text-sm">
-                {latestUpdatedAt ? `Updated ${new Date(latestUpdatedAt).toLocaleString()}` : "Ready to start writing"}
-              </p>
-            )
-          })()}
+    <div className="flex h-screen flex-col gap-3 bg-slate-50 p-4 lg:p-6">
+      <header className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => router.push("/documents")}
+            className="flex h-10 w-10 items-center justify-center rounded-full border bg-white text-muted-foreground shadow-sm transition hover:text-foreground"
+            aria-label="Back to documents"
+          >
+            <ArrowLeft className="h-5 w-5" />
+          </button>
+          <div>
+            <Input
+              value={titleValue}
+              onChange={(e) => setTitleValue(e.target.value)}
+              onBlur={handleTitleSave}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault()
+                  void handleTitleSave()
+                }
+              }}
+              className="h-auto border-0 bg-transparent px-0 text-3xl font-semibold leading-tight shadow-none focus-visible:border-transparent focus-visible:ring-0"
+              aria-label="Document title"
+            />
+            <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
+              {saveState === "saving" && <span>Saving…</span>}
+              {saveState === "error" && <span className="text-destructive">Save failed</span>}
+              {saveState === "idle" && !dirty && (
+                <span className="flex items-center gap-1 text-emerald-600">
+                  <span className="h-2 w-2 rounded-full bg-emerald-500" />
+                  Saved
+                </span>
+              )}
+              {dirty && saveState !== "saving" && <span className="text-amber-600">Pending save…</span>}
+            </div>
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setShowSources((prev) => !prev)}
+            className="flex h-10 w-10 items-center justify-center rounded-full border bg-white shadow-sm transition hover:shadow"
+            aria-label={showSources ? "Hide Sources" : "Show Sources"}
+            title={showSources ? "Hide Sources" : "Show Sources"}
+          >
+            {showSources ? <PanelLeftClose className="h-4 w-4" /> : <PanelLeftOpen className="h-4 w-4" />}
+          </button>
+          <button
+            onClick={() => setShowAssistant((prev) => !prev)}
+            className="flex h-10 w-10 items-center justify-center rounded-full border bg-white shadow-sm transition hover:shadow"
+            aria-label={showAssistant ? "Hide Assistant" : "Show Assistant"}
+            title={showAssistant ? "Hide Assistant" : "Show Assistant"}
+          >
+            {showAssistant ? <PanelRightClose className="h-4 w-4" /> : <PanelRightOpen className="h-4 w-4" />}
+          </button>
         </div>
       </header>
 
       <WorkspaceShell
-        left={<PanelPlaceholder title="Sources" description="Drag sources into the document as citations." />}
-        center={<DocumentAreaPlaceholder content={content ? content.map((s) => s.content).join("\n\n") : ""} />}
-        right={<PanelPlaceholder title="Assistant" description="Start a conversation or attach context." />}
+        left={<SourcesPanel documentId={documentId} selectionText={selectionText} />}
+        leftCollapsed={!showSources}
+        leftWidth={leftWidth}
+        onLeftResize={setLeftWidth}
+        center={
+          <div className="flex h-full flex-col gap-3 p-2">
+            <DocumentEditor
+              sections={sections}
+              onSectionsChange={handleSectionsChange}
+              onSelectionChange={handleSelectionChange}
+              onBlurSave={persistSections}
+              onDropCitation={handleCitationDrop}
+            />
+            <SelectionHint text={selectionText} />
+          </div>
+        }
+        rightCollapsed={!showAssistant}
+        rightWidth={rightWidth}
+        onRightResize={setRightWidth}
+        right={<PanelPlaceholder title="Assistant" />}
       />
     </div>
   )
 }
 
-function PanelPlaceholder({ title, description }: { title: string; description: string }) {
+function PanelPlaceholder({ title }: { title: string; }) {
   return (
     <div className="flex h-full flex-col gap-4 p-4">
       <h2 className="text-lg font-semibold">{title}</h2>
-      <p className="text-muted-foreground text-sm">{description}</p>
       <div className="flex-1 rounded-lg border border-dashed bg-muted/40" />
     </div>
   )
 }
 
-function DocumentAreaPlaceholder({ content }: { content: string }) {
+function SelectionHint({ text }: { text: string }) {
+  if (!text) return null
   return (
-    <div className="flex h-full flex-col gap-4 p-4">
-      <h2 className="text-lg font-semibold">Document</h2>
-      <div className="flex-1 rounded-lg border bg-muted/10 p-4 text-muted-foreground">
-        {content ? content : "Start typing to add your first paragraphs…"}
-      </div>
+    <div className="rounded-lg border bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
+      Selection captured for suggestions: “{text.slice(0, 180)}{text.length > 180 ? "…" : ""}”
     </div>
   )
+}
+
+function countWords(text: string) {
+  return text ? text.trim().split(/\s+/).filter(Boolean).length : 0
+}
+
+function sectionsFromText(contents: string[], documentId: number, previous: DocumentSection[]): DocumentSection[] {
+  return contents.map((content, idx) => {
+    const existing = previous[idx]
+    return {
+      id: existing?.id,
+      document_id: documentId,
+      content,
+      order_index: idx,
+      title: existing?.title ?? null,
+      word_count: countWords(content),
+      updated_at: existing?.updated_at,
+    }
+  })
+}
+
+function sectionsWithOrder(documentId: number, sections: DocumentSection[]): DocumentSection[] {
+  return sections.map((section, idx) => ({
+    ...section,
+    document_id: documentId,
+    order_index: idx,
+  }))
+}
+
+function latestUpdatedAt(sections: DocumentSection[]): string | null {
+  const timestamps = sections.map((section) => section.updated_at).filter(Boolean) as string[]
+  if (!timestamps.length) return null
+  return timestamps.sort().at(-1) ?? null
+}
+
+function nextMarkerNumber(citations: Citation[]) {
+  const currentMax = citations.reduce((max, citation) => Math.max(max, citation.marker ?? 0), 0)
+  return currentMax + 1
+}
+
+function sectionAbsolutePosition(sections: DocumentSection[], sectionIndex: number, position: number): number {
+  const beforeLength = sections
+    .slice(0, sectionIndex)
+    .reduce((total, section) => total + section.content.length + 2, 0) // account for delimiter
+  return beforeLength + position
 }

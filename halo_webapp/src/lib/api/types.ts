@@ -38,14 +38,24 @@ export interface DocumentSection {
   updated_at?: string
 }
 
+export type DocumentContent = DocumentSection[]
+
 // Content sources / suggestions
 export interface ContentItem {
   id: number
   title: string
-  summary: string
+  summary?: string | null
+  excerpt?: string | null
   author?: string
   published_at?: string
   source_url?: string
+}
+
+export interface ContentSearchParams {
+  query: string
+  limit?: number
+  source_ids?: number[]
+  source_group_ids?: number[]
 }
 
 // Citations
@@ -55,6 +65,7 @@ export interface Citation {
   content_id: number
   marker: number
   position?: number
+  section_index?: number
   created_at?: string
 }
 

@@ -3,7 +3,8 @@ import { z } from "zod"
 export const contentItemSchema = z.object({
   id: z.number(),
   title: z.string(),
-  summary: z.string(),
+  summary: z.string().nullable().optional(),
+  excerpt: z.string().nullable().optional(),
   author: z.string().optional(),
   published_at: z.string().optional(),
   source_url: z.string().url().optional(),

@@ -7,13 +7,16 @@ import { useAuth } from "@/lib/auth/context"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { PlayCircle, X } from "lucide-react"
+import { usePathname } from "next/navigation"
 
 export default function AuthLayout({ children }: { children: React.ReactNode }) {
   const { userAuth, user, organization, loading } = useAuth()
   const router = useRouter()
+  const pathname = usePathname()
   const [showBanner, setShowBanner] = useState(false)
   const bannerStorageKey = "demoVideoBanner:dismissed"
   const [hasRedirected, setHasRedirected] = useState(false)
+  const isWorkspace = pathname?.startsWith("/documents/")
 
   useEffect(() => {
     // redirect immediately if not authenticated or org is missing
@@ -45,9 +48,9 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
 
   return (
     <>
-      <div className="flex h-screen">
-        <Sidebar />
-        <main className="flex-1 p-6 overflow-auto">
+      <div className="flex h-screen bg-slate-50">
+        {!isWorkspace && <Sidebar />}
+        <main className={`flex-1 overflow-auto ${isWorkspace ? "p-0" : "p-6"}`}>
           {children}
         </main>
       </div>

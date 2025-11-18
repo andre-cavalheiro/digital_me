@@ -64,7 +64,7 @@ export const mockContentItems: ContentItem[] = [
   {
     id: 11,
     title: "The Future of Creative Work",
-    summary: "AI tools as collaborative partners that augment capabilities.",
+    excerpt: "AI tools as collaborative partners that augment capabilities.",
     author: "Ethan Foster",
     published_at: "2024-01-03T09:00:00Z",
     source_url: "https://example.com/future-of-work",
@@ -72,7 +72,7 @@ export const mockContentItems: ContentItem[] = [
   {
     id: 12,
     title: "Curation Over Creation",
-    summary: "Abundance shifts the bottleneck from generating ideas to selecting the right ones.",
+    excerpt: "Abundance shifts the bottleneck from generating ideas to selecting the right ones.",
     author: "Fiona Green",
     published_at: "2024-01-02T10:00:00Z",
     source_url: "https://example.com/curation",
@@ -80,7 +80,7 @@ export const mockContentItems: ContentItem[] = [
   {
     id: 13,
     title: "Adapting to AI Integration",
-    summary: "Creators who embrace new tools gain significant advantages over those who resist change.",
+    excerpt: "Creators who embrace new tools gain significant advantages over those who resist change.",
     author: "George Harris",
     published_at: "2024-01-01T08:00:00Z",
     source_url: "https://example.com/adapting-ai",
