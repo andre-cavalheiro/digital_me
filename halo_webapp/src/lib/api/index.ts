@@ -9,6 +9,12 @@
 export * from "./users"
 export * from "./organizations"
 export * from "./plugins"
+export * from "./documents"
+export * from "./document-content"
+export * from "./content"
+export * from "./citations"
+export * from "./conversations"
+export * from "./messages"
 
 // Core exports
 export { api } from "./client"

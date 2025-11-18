@@ -5,7 +5,7 @@ import clsx from "clsx";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
 import { useTheme } from "next-themes";
-import { Home, Menu, ChevronsLeft, ChevronsRight, Sun, Moon, LogOut, ChevronsUpDown, Settings } from "lucide-react";
+import { Home, Menu, ChevronsLeft, ChevronsRight, Sun, Moon, LogOut, ChevronsUpDown, Settings, FileText } from "lucide-react";
 
 import { useAuth } from "@/lib/auth/context"
 import { Button } from "@/components/ui/button";
@@ -24,6 +24,7 @@ export function Sidebar() {
 
   const navItems = [
     { href: "/home", label: "Home", icon: Home },
+    { href: "/documents", label: "Documents", icon: FileText },
     { href: "/plugins", label: "Plugins", icon: Settings }
   ];
 
