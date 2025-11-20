@@ -161,12 +161,17 @@ export function DocumentEditor({ sections, onSectionsChange, onSelectionChange, 
     return "border-l-2 border-l-transparent hover:border-l-sky-300 hover:bg-sky-50/50"
   }
 
+  // Ensure we always have at least one section to avoid switching between rendering paths
+  const displaySections = sections.length > 0 ? sections : [{ content: "", id: undefined, document_id: 0, order_index: 0, title: null, word_count: 0, updated_at: undefined } as DocumentSection]
+
   return (
     <div className="flex h-full flex-col gap-3 p-3">
-      {sections.map((section, idx) => (
+      {displaySections.map((section, idx) => (
         <div
           key={idx}
-          ref={(el) => (containerRefs.current[idx] = el)}
+          ref={(el) => {
+            containerRefs.current[idx] = el
+          }}
           className={`relative rounded-lg transition ${indicatorClass(idx)}`}
           onClick={() => {
             setSelected(idx)
@@ -212,35 +217,6 @@ export function DocumentEditor({ sections, onSectionsChange, onSelectionChange, 
           />
         </div>
       ))}
-      {sections.length === 0 && (
-        <div
-          className={`rounded-lg transition ${indicatorClass(0)}`}
-          onClick={() => {
-            setSelected(0)
-            focusSection(0)
-          }}
-        >
-          <textarea
-            ref={(el) => {
-              textareasRef.current[0] = el
-              if (el) autoSize(el)
-            }}
-            data-section-index={0}
-            className="w-full resize-none border-0 bg-transparent px-4 py-3 text-base leading-7 text-foreground outline-none focus:ring-0"
-            placeholder="Start typing. Press Enter twice to start a new section."
-            value=""
-            onChange={(event) => {
-              autoSize(event.currentTarget)
-              onSectionsChange([event.target.value])
-            }}
-            onSelect={handleSelect}
-            onKeyUp={handleSelect}
-            onMouseUp={handleSelect}
-            onKeyDown={handleKeyDown}
-            onBlur={onBlurSave}
-          />
-        </div>
-      )}
     </div>
   )
 }

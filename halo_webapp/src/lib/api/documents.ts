@@ -58,3 +58,17 @@ export async function updateDocumentTitle(id: number, title: string): Promise<Do
     },
   )
 }
+
+export async function deleteDocument(id: number): Promise<void> {
+  return withMock(
+    (() => {
+      const index = mockDocuments.findIndex((doc) => doc.id === id)
+      if (index >= 0) {
+        mockDocuments.splice(index, 1)
+      }
+    })(),
+    async () => {
+      await api.delete(`/documents/${id}`)
+    },
+  )
+}

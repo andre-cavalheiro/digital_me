@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
-import { createCitation, fetchCitations, fetchDocument, fetchDocumentContent, saveDocumentContent, updateDocumentTitle, type Citation, type Document, type DocumentSection } from "@/lib/api"
+import { createCitation, fetchCitations, fetchContentItem, fetchDocument, fetchDocumentContent, saveDocumentContent, updateDocumentTitle, type Citation, type ContentItem, type Document, type DocumentSection } from "@/lib/api"
 import { WorkspaceShell } from "@/components/layout/workspace-shell"
 import { SourcesPanel } from "@/components/panels/sources-panel"
 import { DocumentEditor } from "./document-editor"
@@ -33,6 +33,7 @@ export function DocumentWorkspace({ documentId }: Props) {
   const [showAssistant, setShowAssistant] = useState(true)
   const [leftWidth, setLeftWidth] = useState(320)
   const [rightWidth, setRightWidth] = useState(360)
+  const [contentCache, setContentCache] = useState<Record<number, ContentItem>>({})
   const initialLoadRef = useRef(true)
   const debounceRef = useRef<NodeJS.Timeout | null>(null)
   const suppressDirtyRef = useRef(false)
@@ -58,6 +59,7 @@ export function DocumentWorkspace({ documentId }: Props) {
           setCitations(docCitations)
           setStatus("idle")
           setDirty(false)
+          void hydrateContentCache(docCitations.map((c) => c.content_id), setContentCache)
         }
       } catch (error) {
         console.error("Failed to load document", error)
@@ -130,13 +132,13 @@ export function DocumentWorkspace({ documentId }: Props) {
       const next = [...previous]
       const target = next[sectionIndex]
       if (!target) return previous
-      const before = target.content.slice(0, position)
-      const after = target.content.slice(position)
-      next[sectionIndex] = { ...target, content: `${before}${markerText}${after}` }
+      const { updatedContent, updatedPosition } = mergeMarkerIntoExisting(target.content, position, markerText)
+      next[sectionIndex] = { ...target, content: updatedContent }
       return next
     })
 
     setCitations((prev) => [...prev, { document_id: documentId, content_id: contentId, marker, position, section_index: sectionIndex }])
+    void hydrateContentCache([contentId], setContentCache)
 
     void createCitation(documentId, {
       content_id: contentId,
@@ -267,19 +269,20 @@ export function DocumentWorkspace({ documentId }: Props) {
         onLeftResize={setLeftWidth}
         center={
           <div className="flex h-full flex-col gap-3 p-2">
-            <DocumentEditor
-              sections={sections}
-              onSectionsChange={handleSectionsChange}
-              onSelectionChange={handleSelectionChange}
-              onBlurSave={persistSections}
-              onDropCitation={handleCitationDrop}
-            />
-            <SelectionHint text={selectionText} />
-          </div>
-        }
-        rightCollapsed={!showAssistant}
-        rightWidth={rightWidth}
-        onRightResize={setRightWidth}
+          <DocumentEditor
+            sections={sections}
+            onSectionsChange={handleSectionsChange}
+            onSelectionChange={handleSelectionChange}
+            onBlurSave={persistSections}
+            onDropCitation={handleCitationDrop}
+          />
+          <SelectionHint text={selectionText} />
+          <CitationLinks citations={citations} contentCache={contentCache} />
+        </div>
+      }
+      rightCollapsed={!showAssistant}
+      rightWidth={rightWidth}
+      onRightResize={setRightWidth}
         right={<PanelPlaceholder title="Assistant" />}
       />
     </div>
@@ -300,6 +303,34 @@ function SelectionHint({ text }: { text: string }) {
   return (
     <div className="rounded-lg border bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
       Selection captured for suggestions: “{text.slice(0, 180)}{text.length > 180 ? "…" : ""}”
+    </div>
+  )
+}
+
+function CitationLinks({ citations, contentCache }: { citations: Citation[]; contentCache: Record<number, ContentItem> }) {
+  if (!citations.length) return null
+  const sorted = [...citations].sort((a, b) => (a.marker ?? 0) - (b.marker ?? 0))
+  return (
+    <div className="rounded-lg border bg-white px-3 py-2 text-xs text-muted-foreground">
+      <div className="mb-1 font-semibold text-foreground">Citations</div>
+      <div className="flex flex-wrap gap-3">
+        {sorted.map((citation) => {
+          const item = contentCache[citation.content_id]
+          const href = item?.source_url
+          return (
+            <span key={`${citation.marker}-${citation.content_id}`} className="flex items-center gap-2">
+              <span className="rounded-full bg-sky-50 px-2 py-1 text-sky-800">{citation.marker}</span>
+              {href ? (
+                <a href={href} target="_blank" rel="noreferrer" className="underline-offset-2 hover:underline">
+                  {item?.title ?? "Open source"}
+                </a>
+              ) : (
+                <span>{item?.title ?? "Source"}</span>
+              )}
+            </span>
+          )
+        })}
+      </div>
     </div>
   )
 }
@@ -347,4 +378,43 @@ function sectionAbsolutePosition(sections: DocumentSection[], sectionIndex: numb
     .slice(0, sectionIndex)
     .reduce((total, section) => total + section.content.length + 2, 0) // account for delimiter
   return beforeLength + position
+}
+
+function mergeMarkerIntoExisting(content: string, position: number, markerText: string) {
+  const open = content.lastIndexOf("[", position)
+  const close = content.indexOf("]", position)
+
+  if (open !== -1 && close !== -1 && close > open) {
+    const inside = content.slice(open + 1, close)
+    // If inside is digits/commas, append marker instead of nesting
+    if (/^\s*\d+(,\s*\d+)*\s*$/.test(inside)) {
+      const prefix = content.slice(0, close)
+      const suffix = content.slice(close)
+      const updatedInside = inside.trim().length ? `${inside.trim()}, ${markerText.replace(/\[|\]/g, "")}` : markerText.replace(/\[|\]/g, "")
+      return {
+        updatedContent: `${content.slice(0, open + 1)}${updatedInside}${suffix}`,
+        updatedPosition: close + markerText.length,
+      }
+    }
+  }
+
+  const before = content.slice(0, position)
+  const after = content.slice(position)
+  return {
+    updatedContent: `${before}${markerText}${after}`,
+    updatedPosition: position + markerText.length,
+  }
+}
+
+async function hydrateContentCache(ids: number[], setCache?: React.Dispatch<React.SetStateAction<Record<number, ContentItem>>>) {
+  if (!setCache) return
+  const unique = Array.from(new Set(ids)).filter(Boolean)
+  for (const id of unique) {
+    try {
+      const item = await fetchContentItem(id)
+      setCache((prev) => (prev[id] ? prev : { ...prev, [id]: item }))
+    } catch (error) {
+      console.error("Failed to load content item", error)
+    }
+  }
 }

@@ -2,10 +2,11 @@
 
 import { useEffect, useMemo, useState } from "react"
 import { useRouter } from "next/navigation"
-import { Plus, RefreshCcw } from "lucide-react"
-import { fetchDocuments, createDocument, type Document } from "@/lib/api"
+import { Plus, RefreshCcw, Trash2 } from "lucide-react"
+import { fetchDocuments, createDocument, deleteDocument, type Document } from "@/lib/api"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { toast } from "sonner"
 
 type FetchState = "idle" | "loading" | "error"
 
@@ -67,6 +68,23 @@ export function DocumentsPage() {
     router.push(`/documents/${id}`)
   }
 
+  const handleDelete = async (id: number, title: string, event: React.MouseEvent) => {
+    event.stopPropagation()
+
+    if (!window.confirm(`Are you sure you want to delete "${title}"? This action cannot be undone.`)) {
+      return
+    }
+
+    try {
+      await deleteDocument(id)
+      setDocuments((prev) => prev.filter((doc) => doc.id !== id))
+      toast.success("Document deleted successfully")
+    } catch (error) {
+      console.error("Failed to delete document", error)
+      toast.error("Failed to delete document. Please try again.")
+    }
+  }
+
   const isLoading = status === "loading" && documents.length === 0
 
   return (
@@ -106,11 +124,22 @@ export function DocumentsPage() {
           {sortedDocuments.map((doc) => (
             <Card
               key={doc.id}
-              className="cursor-pointer transition hover:-translate-y-0.5 hover:shadow-md"
+              className="group relative cursor-pointer transition hover:-translate-y-0.5 hover:shadow-md"
               onClick={() => handleOpen(doc.id)}
             >
               <CardHeader>
-                <CardTitle className="line-clamp-2">{doc.title}</CardTitle>
+                <div className="flex items-start justify-between gap-2">
+                  <CardTitle className="line-clamp-2 flex-1">{doc.title}</CardTitle>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 shrink-0 opacity-0 transition-opacity group-hover:opacity-100 hover:bg-destructive hover:text-destructive-foreground"
+                    onClick={(e) => handleDelete(doc.id, doc.title, e)}
+                    aria-label={`Delete ${doc.title}`}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
               </CardHeader>
               <CardContent>
                 <p className="text-sm text-muted-foreground">
@@ -125,7 +154,7 @@ export function DocumentsPage() {
                 <CardTitle>No documents yet</CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-sm">Click “New Document” to get started.</p>
+                <p className="text-sm">Click "New Document" to get started.</p>
               </CardContent>
             </Card>
           )}
