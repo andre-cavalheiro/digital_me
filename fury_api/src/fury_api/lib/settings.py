@@ -15,8 +15,10 @@ __all__ = [
     "LoggingSettings",
     "DatabaseSettings",
     "OpenAPISettings",
+    "XSettings",
     "SettingsConfig",
     "ExperimentalSettings",
+    "CommunityArchiveSettings",
     "load_settings",
     "config",
     "version",
@@ -252,6 +254,22 @@ class FirebaseSettings(FuryBaseSettings):
     WEB_API_KEY: SecretStr
 
 
+class XSettings(FuryBaseSettings):
+    """X integration settings."""
+
+    model_config = build_settings_config("FURY_X_")
+
+    BEARER_TOKEN: SecretStr | None = None
+
+
+class CommunityArchiveSettings(FuryBaseSettings):
+    """Community Archive integration settings."""
+
+    model_config = build_settings_config("FURY_COMMUNITY_ARCHIVE_")
+
+    BEARER_TOKEN: SecretStr | None = None
+
+
 class ExperimentalSettings(FuryBaseSettings):
     """Experimental settings."""
 
@@ -268,6 +286,8 @@ class SettingsConfig:
     database: DatabaseSettings
     openapi: OpenAPISettings
     firebase: FirebaseSettings
+    x: XSettings
+    community_archive: CommunityArchiveSettings
     experimental: ExperimentalSettings
 
 
@@ -290,6 +310,8 @@ def load_settings(force_reload: bool = False) -> SettingsConfig:
             database=DatabaseSettings(),
             openapi=OpenAPISettings(),
             firebase=FirebaseSettings(),
+            x=XSettings(),
+            community_archive=CommunityArchiveSettings(),
             experimental=ExperimentalSettings(),
         )
     except ValidationError as exc:

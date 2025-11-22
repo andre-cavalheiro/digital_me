@@ -39,6 +39,7 @@ requests = "^2.32.3"
 firebase-admin = "^6.6.0"
 stripe = "^13.1.0"
 sse-starlette = "^1.6.5"
+xdk = "^0.2.2b0"
 
 [tool.poetry.group.dev.dependencies]
 coverage = "^7.3.2"
