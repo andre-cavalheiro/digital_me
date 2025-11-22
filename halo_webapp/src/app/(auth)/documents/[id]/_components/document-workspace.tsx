@@ -206,12 +206,12 @@ export function DocumentWorkspace({ documentId }: Props) {
   }
 
   return (
-    <div className="flex h-screen flex-col gap-3 bg-slate-50 p-4 lg:p-6">
-      <header className="flex flex-wrap items-center justify-between gap-3">
+    <div className="flex h-screen flex-col bg-[#FEFEFE]">
+      <header className="flex flex-wrap items-center justify-between gap-3 border-b bg-white px-6 py-4">
         <div className="flex items-center gap-3">
           <button
             onClick={() => router.push("/documents")}
-            className="flex h-10 w-10 items-center justify-center rounded-full border bg-white text-muted-foreground shadow-sm transition hover:text-foreground"
+            className="flex h-9 w-9 items-center justify-center rounded-md text-muted-foreground transition hover:bg-slate-100 hover:text-foreground"
             aria-label="Back to documents"
           >
             <ArrowLeft className="h-5 w-5" />
@@ -227,15 +227,15 @@ export function DocumentWorkspace({ documentId }: Props) {
                   void handleTitleSave()
                 }
               }}
-              className="h-auto border-0 bg-transparent px-0 text-3xl font-semibold leading-tight shadow-none focus-visible:border-transparent focus-visible:ring-0"
+              className="h-auto border-0 bg-transparent px-0 text-2xl font-semibold leading-tight shadow-none focus-visible:border-transparent focus-visible:ring-0"
               aria-label="Document title"
             />
-            <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
+            <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
               {saveState === "saving" && <span>Saving…</span>}
               {saveState === "error" && <span className="text-destructive">Save failed</span>}
               {saveState === "idle" && !dirty && (
                 <span className="flex items-center gap-1 text-emerald-600">
-                  <span className="h-2 w-2 rounded-full bg-emerald-500" />
+                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
                   Saved
                 </span>
               )}
@@ -246,7 +246,7 @@ export function DocumentWorkspace({ documentId }: Props) {
         <div className="flex items-center gap-2">
           <button
             onClick={() => setShowSources((prev) => !prev)}
-            className="flex h-10 w-10 items-center justify-center rounded-full border bg-white shadow-sm transition hover:shadow"
+            className="flex h-9 w-9 items-center justify-center rounded-md transition hover:bg-slate-100"
             aria-label={showSources ? "Hide Sources" : "Show Sources"}
             title={showSources ? "Hide Sources" : "Show Sources"}
           >
@@ -254,7 +254,7 @@ export function DocumentWorkspace({ documentId }: Props) {
           </button>
           <button
             onClick={() => setShowAssistant((prev) => !prev)}
-            className="flex h-10 w-10 items-center justify-center rounded-full border bg-white shadow-sm transition hover:shadow"
+            className="flex h-9 w-9 items-center justify-center rounded-md transition hover:bg-slate-100"
             aria-label={showAssistant ? "Hide Assistant" : "Show Assistant"}
             title={showAssistant ? "Hide Assistant" : "Show Assistant"}
           >
@@ -269,7 +269,7 @@ export function DocumentWorkspace({ documentId }: Props) {
         leftWidth={leftWidth}
         onLeftResize={setLeftWidth}
         center={
-          <div className="flex h-full flex-col gap-3 p-2">
+          <div className="flex flex-col gap-4 px-6 py-8 pb-80">
           <DocumentEditor
             sections={sections}
             onSectionsChange={handleSectionsChange}
@@ -277,8 +277,6 @@ export function DocumentWorkspace({ documentId }: Props) {
             onBlurSave={persistSections}
             onDropCitation={handleCitationDrop}
           />
-          <SelectionHint text={selectionText} />
-          <CitationLinks citations={citations} contentCache={contentCache} />
         </div>
       }
       rightCollapsed={!showAssistant}
@@ -286,43 +284,6 @@ export function DocumentWorkspace({ documentId }: Props) {
       onRightResize={setRightWidth}
         right={<AssistantPanel documentId={documentId} selectionText={selectionText} />}
       />
-    </div>
-  )
-}
-
-function SelectionHint({ text }: { text: string }) {
-  if (!text) return null
-  return (
-    <div className="rounded-lg border bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
-      Selection captured for suggestions: “{text.slice(0, 180)}{text.length > 180 ? "…" : ""}”
-    </div>
-  )
-}
-
-function CitationLinks({ citations, contentCache }: { citations: Citation[]; contentCache: Record<number, ContentItem> }) {
-  if (!citations.length) return null
-  const sorted = [...citations].sort((a, b) => (a.marker ?? 0) - (b.marker ?? 0))
-  return (
-    <div className="rounded-lg border bg-white px-3 py-2 text-xs text-muted-foreground">
-      <div className="mb-1 font-semibold text-foreground">Citations</div>
-      <div className="flex flex-wrap gap-3">
-        {sorted.map((citation) => {
-          const item = contentCache[citation.content_id]
-          const href = item?.source_url
-          return (
-            <span key={`${citation.marker}-${citation.content_id}`} className="flex items-center gap-2">
-              <span className="rounded-full bg-sky-50 px-2 py-1 text-sky-800">{citation.marker}</span>
-              {href ? (
-                <a href={href} target="_blank" rel="noreferrer" className="underline-offset-2 hover:underline">
-                  {item?.title ?? "Open source"}
-                </a>
-              ) : (
-                <span>{item?.title ?? "Source"}</span>
-              )}
-            </span>
-          )
-        })}
-      </div>
     </div>
   )
 }

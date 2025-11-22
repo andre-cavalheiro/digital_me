@@ -1,7 +1,7 @@
 "use client"
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
-import { Loader2, MessageSquarePlus, Plus, RotateCw, Send } from "lucide-react"
+import { ArrowUp, Loader2, MessageSquarePlus, Plus, RotateCw } from "lucide-react"
 import { toast } from "sonner"
 
 import { Button } from "@/components/ui/button"
@@ -171,7 +171,6 @@ export function AssistantPanel({ documentId, selectionText }: Props) {
       <header className="flex items-center justify-between border-b px-4 py-3">
         <div className="space-y-0.5">
           <h2 className="text-lg font-semibold leading-tight">Assistant</h2>
-          <p className="text-xs text-muted-foreground">Ask questions or refine this document.</p>
         </div>
         <div className="flex items-center gap-2">
           <ConversationHistoryMenu
@@ -234,20 +233,23 @@ export function AssistantPanel({ documentId, selectionText }: Props) {
               </button>
             )}
             <div className="flex flex-col gap-2">
-              <textarea
-                ref={composerRef}
-                value={inputValue}
-                onChange={(event) => setInputValue(event.target.value)}
-                placeholder={selectedConversationId ? "Ask a question or request a draft…" : "Start a conversation…"}
-                className="min-h-[72px] w-full resize-none rounded-xl border bg-white px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-sky-300"
-              />
-              <div className="flex items-center justify-between">
-                <p className="text-xs text-muted-foreground">
-                  Responses are mocked for now but follow the final assistant flow.
-                </p>
-                <Button size="sm" disabled={isSending || !inputValue.trim()} onClick={handleSend}>
-                  {isSending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
-                  Send
+              <div className="flex items-end gap-2 rounded-xl border bg-white px-2 py-2 shadow-sm focus-within:ring-2 focus-within:ring-sky-200">
+                <textarea
+                  ref={composerRef}
+                  value={inputValue}
+                  onChange={(event) => setInputValue(event.target.value)}
+                  placeholder={selectedConversationId ? "Ask a question or request a draft…" : "Start a conversation…"}
+                  className="min-h-[64px] w-full resize-none rounded-lg border-0 bg-transparent px-2 py-1 text-sm focus-visible:outline-none"
+                />
+                <Button
+                  size="icon"
+                  variant="secondary"
+                  className="h-9 w-9 rounded-full bg-sky-600 text-white hover:bg-sky-700 disabled:opacity-50"
+                  disabled={isSending || !inputValue.trim()}
+                  onClick={handleSend}
+                  aria-label="Send message"
+                >
+                  {isSending ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowUp className="h-4 w-4" />}
                 </Button>
               </div>
             </div>

@@ -165,14 +165,14 @@ export function DocumentEditor({ sections, onSectionsChange, onSelectionChange, 
   const displaySections = sections.length > 0 ? sections : [{ content: "", id: undefined, document_id: 0, order_index: 0, title: null, word_count: 0, updated_at: undefined } as DocumentSection]
 
   return (
-    <div className="flex h-full flex-col gap-3 p-3">
+    <div className="flex flex-col gap-4 max-w-3xl mx-auto w-full">
       {displaySections.map((section, idx) => (
         <div
           key={idx}
           ref={(el) => {
             containerRefs.current[idx] = el
           }}
-          className={`relative rounded-lg transition ${indicatorClass(idx)}`}
+          className={`relative rounded-lg transition-all ${indicatorClass(idx)}`}
           onClick={() => {
             setSelected(idx)
             onSelectionChange?.({ text: section.content, start: 0, end: 0, sectionIndex: idx })
@@ -203,7 +203,7 @@ export function DocumentEditor({ sections, onSectionsChange, onSelectionChange, 
               if (el) autoSize(el)
             }}
             data-section-index={idx}
-            className="w-full resize-none border-0 bg-transparent px-4 py-3 text-base leading-7 text-foreground outline-none focus:ring-0"
+            className="w-full resize-none border-0 bg-transparent px-5 py-4 text-lg leading-8 text-slate-900 placeholder:text-slate-400 outline-none focus:ring-0"
             placeholder={idx === 0 ? "Start typing. Press Enter twice to start a new section." : "Continue writing..."}
             value={section.content}
             onChange={handleChange}

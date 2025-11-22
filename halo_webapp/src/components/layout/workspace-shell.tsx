@@ -54,19 +54,19 @@ export function WorkspaceShell({
   }
 
   return (
-    <div className="flex h-full overflow-hidden rounded-xl border bg-white shadow-sm">
+    <div className="flex h-full overflow-hidden bg-[#FEFEFE]">
       {showLeft && (
-        <section style={{ width: leftWidth }} className="hidden min-w-[240px] max-w-[520px] flex-col overflow-hidden border-r bg-white lg:flex">
+        <section style={{ width: leftWidth }} className="hidden min-w-[240px] max-w-[520px] flex-col overflow-hidden border-r bg-slate-50 lg:flex">
           {left}
         </section>
       )}
-      {showLeft && onLeftResize && <div className="hidden w-1 cursor-col-resize bg-gradient-to-r from-transparent via-muted to-transparent lg:block" onMouseDown={(e) => startResize("left", e)} />}
+      {showLeft && onLeftResize && <div className="hidden w-1 cursor-col-resize bg-gradient-to-r from-transparent via-slate-300 to-transparent lg:block" onMouseDown={(e) => startResize("left", e)} />}
 
-      <section className="flex min-w-[0] flex-1 flex-col overflow-hidden">{center}</section>
+      <section className="flex min-w-[0] flex-1 flex-col overflow-y-auto bg-[#FEFEFE]">{center}</section>
 
-      {showRight && onRightResize && <div className="hidden w-1 cursor-col-resize bg-gradient-to-r from-transparent via-muted to-transparent lg:block" onMouseDown={(e) => startResize("right", e)} />}
+      {showRight && onRightResize && <div className="hidden w-1 cursor-col-resize bg-gradient-to-r from-transparent via-slate-300 to-transparent lg:block" onMouseDown={(e) => startResize("right", e)} />}
       {showRight && (
-        <section style={{ width: rightWidth }} className="hidden min-w-[240px] max-w-[520px] flex-col overflow-hidden border-l bg-white lg:flex">
+        <section style={{ width: rightWidth }} className="hidden min-w-[240px] max-w-[520px] flex-col overflow-hidden border-l bg-slate-50 lg:flex">
           {right}
         </section>
       )}
