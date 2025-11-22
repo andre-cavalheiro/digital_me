@@ -104,7 +104,9 @@ class DocumentContent(DocumentContentBase, BigIntIDModel, table=True):
     id: int | None = Field(
         default=None, primary_key=True, sa_type=sa.BigInteger, sa_column_kwargs={"autoincrement": True}
     )
-    document_id: int = Field(sa_type=sa.BigInteger, foreign_key="document.id", nullable=False)
+    document_id: int = Field(
+        sa_column=sa.Column(sa.BigInteger, sa.ForeignKey("document.id", ondelete="CASCADE"), nullable=False)
+    )
     title: str | None = Field(default=None, nullable=True)
     content: str = Field(nullable=False)
     order_index: int = Field(nullable=False)
