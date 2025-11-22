@@ -52,15 +52,10 @@ async def create_plugin(
         ),
     ],
     current_user: Annotated[User, Depends(get_current_user)],
-) -> Plugin:
-    payload = plugin.model_dump(by_alias=True, exclude_unset=True, exclude_none=True)
-    payload["organization_id"] = current_user.organization_id
-    # Set default empty dicts if not provided
-    if "credentials" not in payload or payload["credentials"] is None:
-        payload["credentials"] = {}
-    if "properties" not in payload or payload["properties"] is None:
-        payload["properties"] = {}
-    converted_plugin = Plugin.model_validate(payload)
+) -> PluginRead:
+    plugin_data = plugin.model_dump()
+    plugin_data["organization_id"] = current_user.organization_id
+    converted_plugin = Plugin.model_validate(plugin_data)
     return await plugin_service.create_item(converted_plugin)
 
 

@@ -287,7 +287,9 @@ class DocumentSourceConfig(DocumentSourceConfigBase, BigIntIDModel, table=True):
     id: int | None = Field(
         default=None, primary_key=True, sa_type=sa.BigInteger, sa_column_kwargs={"autoincrement": True}
     )
-    document_id: int = Field(sa_type=sa.BigInteger, foreign_key="document.id", nullable=False)
+    document_id: int = Field(
+        sa_column=sa.Column(sa.BigInteger, sa.ForeignKey("document.id", ondelete="CASCADE"), nullable=False)
+    )
     organization_id: int = Field(sa_type=sa.BigInteger, foreign_key="organization.id", nullable=False)
     source_group_id: int | None = Field(sa_type=sa.BigInteger, foreign_key="source_group.id", nullable=True)
     source_id: int | None = Field(sa_type=sa.BigInteger, foreign_key="source.id", nullable=True)
@@ -331,7 +333,9 @@ class Citation(CitationBase, BigIntIDModel, table=True):
     id: int | None = Field(
         default=None, primary_key=True, sa_type=sa.BigInteger, sa_column_kwargs={"autoincrement": True}
     )
-    document_id: int = Field(sa_type=sa.BigInteger, foreign_key="document.id", nullable=False)
+    document_id: int = Field(
+        sa_column=sa.Column(sa.BigInteger, sa.ForeignKey("document.id", ondelete="CASCADE"), nullable=False)
+    )
     content_id: int = Field(sa_type=sa.BigInteger, foreign_key="content.id", nullable=False)
     organization_id: int = Field(sa_type=sa.BigInteger, foreign_key="organization.id", nullable=False)
     citation_number: int = Field(nullable=False)
