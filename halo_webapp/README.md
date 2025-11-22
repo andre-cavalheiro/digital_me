@@ -58,7 +58,7 @@ Applied to this codebase:
 
 - `app/page.tsx` renders the public landing page served at `/`.
 - `app/(auth)/` is a route group. The parentheses keep the segment out of the URL but let us cluster all authenticated routes under the `app/(auth)/layout.tsx` shell (sidebar, auth gating, global toasts).
-- `app/(auth)/home/page.tsx` produces `/home`, the main authenticated dashboard.
+- `app/(auth)/documents/page.tsx` produces `/documents`, the main authenticated dashboard showing user documents.
 
 ### API Client Layer
 

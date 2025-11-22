@@ -99,7 +99,7 @@ export interface SelectionContext {
 
 
 // Plugin/Integration types
-export type PluginDataSourceId = "cloudflare" | "namecheap"
+export type PluginDataSourceId = "x" | "community_archive"
 
 export interface CapabilityBadge {
   label: string
@@ -120,8 +120,8 @@ export interface Plugin {
   organization_id: number
   dataSource: PluginDataSourceId
   title: string
-  credentials: Record<string, any>
-  properties: Record<string, any>
+  credentials?: Record<string, any>
+  properties?: Record<string, any>
   created_at: string
 }
 

@@ -15,7 +15,7 @@ export const contentItemSchema = z
     source_id: z.number().optional(),
     external_id: z.string().optional(),
     synced_at: z.string().optional(),
-    platform_metadata: z.record(z.any()).optional(),
+    platform_metadata: z.record(z.string(), z.unknown()).optional(),
     created_at: z.string().optional(),
     updated_at: z.string().optional(),
   })

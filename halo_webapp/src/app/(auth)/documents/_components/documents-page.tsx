@@ -133,7 +133,7 @@ export function DocumentsPage() {
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="h-8 w-8 shrink-0 opacity-0 transition-opacity group-hover:opacity-100 hover:bg-destructive hover:text-destructive-foreground"
+                    className="h-8 w-8 shrink-0 text-destructive hover:text-destructive hover:bg-destructive/10 opacity-0 transition-opacity group-hover:opacity-100 focus-visible:ring-destructive/30"
                     onClick={(e) => handleDelete(doc.id, doc.title, e)}
                     aria-label={`Delete ${doc.title}`}
                   >

@@ -1,29 +1,39 @@
 import type { PluginDataSourceId, PluginDataSource } from "./api/types"
 
 export const PLUGIN_DATA_SOURCES: Record<PluginDataSourceId, PluginDataSource> = {
-  cloudflare: {
-    id: "cloudflare",
-    displayName: "Cloudflare",
-    icon: "/integrations/cloudflare.webp",
+  x: {
+    id: "x",
+    displayName: "X",
+    icon: "/integrations/x.png",
     enabled: true,
     getCapabilityBadges: () => [
       {
-        label: "Managed Subdirectory Hosting",
+        label: "Tweet Access",
         supported: true,
-        tooltip: "Add /blog to your domain — hosted and routed automatically"
+        tooltip: "Access tweets via official X API - fresher data with rate limits"
+      },
+      {
+        label: "Full Archive Search",
+        supported: true,
+        tooltip: "Search all tweets in X's full archive"
       }
     ]
   },
-  namecheap: {
-    id: "namecheap",
-    displayName: "Namecheap",
-    icon: "/integrations/namecheap.png",
-    enabled: false,
+  community_archive: {
+    id: "community_archive",
+    displayName: "Community Archive",
+    icon: "/integrations/community_archive.avif",
+    enabled: true,
     getCapabilityBadges: () => [
       {
-        label: "Managed Subdirectory Hosting",
-        supported: false,
-        tooltip: "Add /blog to your domain — hosted and routed automatically"
+        label: "Tweet Access",
+        supported: true,
+        tooltip: "Access tweets via community-managed archive - open source"
+      },
+      {
+        label: "Historical Data",
+        supported: true,
+        tooltip: "Access to community-archived historical tweet data"
       }
     ]
   }

@@ -3,14 +3,9 @@
 import { useState, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/components/ui/tooltip"
-import { useForm } from "react-hook-form"
-import { zodResolver } from "@hookform/resolvers/zod"
-import * as z from "zod"
-import { Trash2, Settings, HelpCircle, CheckCircle, XCircle } from "lucide-react"
+import { Trash2, Settings, CheckCircle, XCircle } from "lucide-react"
 import { fetchPlugins as getPlugins, createPlugin, deletePlugin } from "@/lib/api/plugins"
 import type { Plugin, PluginCreate, PluginDataSourceId } from "@/lib/api/types"
 import { cn } from "@/lib/utils"
@@ -18,25 +13,13 @@ import { toast } from "sonner"
 import { PageHeader } from "@/components/ui/page-header"
 import { PLUGIN_DATA_SOURCES } from "@/lib/plugin-data-sources"
 
-const integrationFormSchema = z.object({
-  token: z.string().min(1, "API token is required"),
-})
-
-type IntegrationFormData = z.infer<typeof integrationFormSchema>
-
 export default function PluginsPage() {
   const [plugins, setPlugins] = useState<Plugin[]>([])
   const [loading, setLoading] = useState(true)
   const [installingPlugin, setInstallingPlugin] = useState<string | null>(null)
-  const [deletingPlugin, setDeletingPlugin] = useState<string | null>(null)
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
-
-  const form = useForm<IntegrationFormData>({
-    resolver: zodResolver(integrationFormSchema),
-    defaultValues: {
-      token: "",
-    },
-  })
+  const [deletingPlugin, setDeletingPlugin] = useState<PluginDataSourceId | null>(null)
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState<PluginDataSourceId | null>(null)
+  const [installDialogOpen, setInstallDialogOpen] = useState(false)
 
   useEffect(() => {
     const fetchPlugins = async () => {
@@ -53,19 +36,18 @@ export default function PluginsPage() {
     fetchPlugins()
   }, [])
 
-  const handleInstall = async (platformId: string, platformDisplayName: string, token: string) => {
+  const handleInstall = async (platformId: string, platformDisplayName: string) => {
     setInstallingPlugin(platformId)
     try {
       const newPlugin = await createPlugin({
         title: platformDisplayName,
         data_source: platformId as any,
-        credentials: {
-          token: token,
-        },
+        credentials: {},
         properties: {},
       })
       setPlugins(prev => [...prev, newPlugin])
       toast.success(`${platformDisplayName} integration installed successfully`)
+      setInstallDialogOpen(false)
     } catch (error) {
       console.error("Error installing plugin:", error)
       toast.error(`Failed to install ${platformDisplayName} integration`)
@@ -74,11 +56,17 @@ export default function PluginsPage() {
     }
   }
 
-  const handleDelete = async (pluginId: number) => {
-    setDeletingPlugin(pluginId.toString())
+  const handleDelete = async (pluginDataSource: PluginDataSourceId) => {
+    const plugin = getPluginForPlatform(pluginDataSource)
+    if (!plugin) {
+      toast.error("Integration not found")
+      return
+    }
+
+    setDeletingPlugin(pluginDataSource)
     try {
-      await deletePlugin(pluginId)
-      setPlugins(prev => prev.filter(p => p.id !== pluginId))
+      await deletePlugin(plugin.id)
+      setPlugins(prev => prev.filter(p => p.dataSource !== plugin.dataSource))
       toast.success("Integration deleted successfully")
     } catch (error) {
       console.error("Error deleting plugin:", error)
@@ -162,13 +150,16 @@ export default function PluginsPage() {
 
                       {/* Delete button positioned at top right */}
                       {isInstalled && (
-                        <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+                        <Dialog
+                          open={deleteDialogOpen === platform.id}
+                          onOpenChange={(open) => setDeleteDialogOpen(open ? platform.id : null)}
+                        >
                           <DialogTrigger asChild>
                             <Button
                               variant="ghost"
                               size="icon"
                               className="h-7 w-7 text-destructive hover:text-destructive hover:bg-destructive/10 transition-colors flex-shrink-0 cursor-pointer"
-                              disabled={deletingPlugin === plugin.id.toString()}
+                              disabled={deletingPlugin === platform.id}
                               data-gtm-event="integration_delete"
                               data-gtm-name={`Integration – Delete ${platform.displayName}`}
                               data-gtm-id={`integration_delete_${platform.id}`}
@@ -191,7 +182,7 @@ export default function PluginsPage() {
                                 type="button"
                                 variant="outline"
                                 className="cursor-pointer"
-                                onClick={() => setDeleteDialogOpen(false)}
+                                onClick={() => setDeleteDialogOpen(null)}
                                 data-gtm-event="dialog_action"
                                 data-gtm-name="Integration Delete – Cancel"
                                 data-gtm-id="integration_delete_cancel"
@@ -204,16 +195,16 @@ export default function PluginsPage() {
                                 variant="destructive"
                                 className="cursor-pointer"
                                 onClick={() => {
-                                  handleDelete(plugin.id)
-                                  setDeleteDialogOpen(false)
+                                  handleDelete(platform.id)
+                                  setDeleteDialogOpen(null)
                                 }}
-                                disabled={deletingPlugin === plugin.id.toString()}
+                                disabled={deletingPlugin === platform.id}
                                 data-gtm-event="dialog_action"
                                 data-gtm-name={`Integration Delete – Confirm ${platform.displayName}`}
                                 data-gtm-id={`integration_delete_confirm_${platform.id}`}
                                 data-gtm-context="automations"
                               >
-                                {deletingPlugin === plugin.id.toString() ? "Deleting..." : "Delete"}
+                                {deletingPlugin === platform.id ? "Deleting..." : "Delete"}
                               </Button>
                             </div>
                           </DialogContent>
@@ -264,7 +255,7 @@ export default function PluginsPage() {
                         </TooltipContent>
                       </Tooltip>
                     ) : canInstall ? (
-                      <Dialog>
+                      <Dialog open={installDialogOpen} onOpenChange={setInstallDialogOpen}>
                         <DialogTrigger asChild>
                           <Button
                             className="w-full cursor-pointer bg-primary hover:bg-primary/90 transition-colors"
@@ -281,48 +272,37 @@ export default function PluginsPage() {
                           <DialogHeader>
                             <DialogTitle>Install {platform.displayName} Integration</DialogTitle>
                           </DialogHeader>
-                          <Form {...form}>
-                            <form onSubmit={form.handleSubmit((data) => {
-                              handleInstall(platform.id, platform.displayName, data.token)
-                            })} className="space-y-4">
-                              <FormField
-                                control={form.control}
-                                name="token"
-                                render={({ field }) => (
-                                  <FormItem>
-                                    <FormLabel>API Token</FormLabel>
-                                    <FormControl>
-                                      <Input {...field} type="text" placeholder="Enter your API token" />
-                                    </FormControl>
-                                    <FormMessage />
-                                  </FormItem>
-                                )}
-                              />
-                              <div className="flex justify-end gap-2">
-                                <Button
-                                  type="button"
-                                  variant="outline"
-                                  onClick={() => form.reset()}
-                                  data-gtm-event="dialog_action"
-                                  data-gtm-name="Integration Install – Cancel"
-                                  data-gtm-id="integration_install_cancel"
-                                  data-gtm-context="automations"
-                                >
-                                  Cancel
-                                </Button>
-                                <Button
-                                  type="submit"
-                                  className="cursor-pointer"
-                                  data-gtm-event="dialog_action"
-                                  data-gtm-name={`Integration Install – Submit ${platform.displayName}`}
-                                  data-gtm-id={`integration_install_submit_${platform.id}`}
-                                  data-gtm-context="automations"
-                                >
-                                  Install
-                                </Button>
-                              </div>
-                            </form>
-                          </Form>
+                          <div className="py-4">
+                            <p className="text-sm text-muted-foreground">
+                              Click Install to enable the {platform.displayName} integration. This will allow you to access tweets and content from {platform.displayName}.
+                            </p>
+                          </div>
+                          <div className="flex justify-end gap-2">
+                            <Button
+                              type="button"
+                              variant="outline"
+                              className="cursor-pointer"
+                              onClick={() => setInstallDialogOpen(false)}
+                              data-gtm-event="dialog_action"
+                              data-gtm-name="Integration Install – Cancel"
+                              data-gtm-id="integration_install_cancel"
+                              data-gtm-context="automations"
+                            >
+                              Cancel
+                            </Button>
+                            <Button
+                              type="button"
+                              className="cursor-pointer"
+                              onClick={() => handleInstall(platform.id, platform.displayName)}
+                              disabled={installingPlugin === platform.id}
+                              data-gtm-event="dialog_action"
+                              data-gtm-name={`Integration Install – Confirm ${platform.displayName}`}
+                              data-gtm-id={`integration_install_confirm_${platform.id}`}
+                              data-gtm-context="automations"
+                            >
+                              {installingPlugin === platform.id ? "Installing..." : "Install"}
+                            </Button>
+                          </div>
                         </DialogContent>
                       </Dialog>
                     ) : (

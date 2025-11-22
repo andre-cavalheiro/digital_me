@@ -8,7 +8,7 @@ export const messageSchema = z.object({
   created_at: z.string().optional(),
   context_sources: z.array(z.number()).optional(),
   status: z.enum(["queued", "running", "completed", "failed"]).default("completed"),
-  metadata: z.record(z.any()).nullable().optional(),
+  metadata: z.record(z.string(), z.unknown()).nullable().optional(),
 })
 
 export type Message = z.infer<typeof messageSchema>
