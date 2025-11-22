@@ -86,6 +86,8 @@ export interface Message {
   content: string
   created_at?: string
   context_sources?: number[]
+  status?: "queued" | "running" | "completed" | "failed"
+  metadata?: Record<string, any> | null
 }
 
 // Editor selection context

@@ -1,3 +1,4 @@
+import { env } from "@/app/env"
 import { api } from "./client"
 import { withMock, mockMessages } from "./mocks"
 import { messageSchema } from "./schemas/message"
@@ -27,6 +28,8 @@ export async function sendMessage(conversationId: number, payload: { content: st
         content: payload.content,
         context_sources: payload.context_sources,
         created_at: new Date().toISOString(),
+        status: "completed",
+        metadata: { mock: true },
       }
       mockMessages.push(created)
       return created
@@ -40,4 +43,44 @@ export async function sendMessage(conversationId: number, payload: { content: st
       return messageSchema.parse(response.data)
     },
   )
+}
+
+export type AssistantStreamEvent = {
+  type: string
+  conversation_id: number
+  assistant_message_id?: number
+  stage?: string
+}
+
+export function subscribeToAssistantStream(
+  conversationId: number,
+  onEvent: (event: AssistantStreamEvent) => void,
+  onError?: (error: Event | null) => void,
+) {
+  if (!env.NEXT_PUBLIC_API_URL || typeof window === "undefined") {
+    return () => {}
+  }
+  const url = new URL(`/conversations/${conversationId}/messages/stream`, env.NEXT_PUBLIC_API_URL)
+  const source = new EventSource(url.toString())
+
+  const handleEvent = (event: MessageEvent) => {
+    try {
+      const data = JSON.parse(event.data)
+      onEvent({ type: event.type || data.type || "message", ...data })
+    } catch (error) {
+      console.error("Failed to parse assistant stream event", error)
+    }
+  }
+
+  source.addEventListener("status", handleEvent)
+  source.addEventListener("completed", handleEvent)
+  source.addEventListener("message", handleEvent)
+  source.onerror = (event) => {
+    console.warn("Assistant stream error", event)
+    onError?.(event)
+  }
+
+  return () => {
+    source.close()
+  }
 }

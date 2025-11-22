@@ -98,8 +98,24 @@ export const mockConversations: Conversation[] = [
 ]
 
 export const mockMessages: Message[] = [
-  { id: 301, conversation_id: 201, role: "user", content: "How should I frame AI benefits?", created_at: "2024-01-10T12:01:00Z" },
-  { id: 302, conversation_id: 201, role: "assistant", content: "Lean on augmentation, not replacement.", created_at: "2024-01-10T12:01:30Z" },
+  {
+    id: 301,
+    conversation_id: 201,
+    role: "user",
+    content: "How should I frame AI benefits?",
+    created_at: "2024-01-10T12:01:00Z",
+    status: "completed",
+    metadata: { mock: true },
+  },
+  {
+    id: 302,
+    conversation_id: 201,
+    role: "assistant",
+    content: "Lean on augmentation, not replacement.",
+    created_at: "2024-01-10T12:01:30Z",
+    status: "completed",
+    metadata: { mock: true },
+  },
 ]
 
 /**

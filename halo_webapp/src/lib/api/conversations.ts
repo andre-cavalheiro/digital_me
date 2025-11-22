@@ -41,3 +41,31 @@ export async function createConversation(payload: { title?: string; document_id?
     },
   )
 }
+
+export async function fetchDocumentConversations(documentId: number): Promise<Conversation[]> {
+  return withMock(
+    mockConversations.filter((c) => c.document_id === documentId),
+    async () => {
+      const response = await api.get(`/documents/${documentId}/conversations`)
+      const paginatedSchema = paginatedResponseSchema(conversationSchema)
+      const parsed = paginatedSchema.parse(response.data)
+      return parsed.items
+    },
+  )
+}
+
+export async function createDocumentConversation(documentId: number, payload: { title?: string | null }): Promise<Conversation> {
+  return withMock(
+    (() => {
+      const nextId = Math.max(...mockConversations.map((c) => c.id)) + 1
+      const now = new Date().toISOString()
+      const created = { id: nextId, title: payload.title ?? "New Conversation", document_id: documentId, created_at: now }
+      mockConversations.unshift(created)
+      return created
+    })(),
+    async () => {
+      const response = await api.post(`/documents/${documentId}/conversations`, payload)
+      return conversationSchema.parse(response.data)
+    },
+  )
+}

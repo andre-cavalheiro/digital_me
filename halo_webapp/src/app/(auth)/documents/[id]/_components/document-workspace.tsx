@@ -6,6 +6,7 @@ import { toast } from "sonner"
 import { createCitation, fetchCitations, fetchContentItem, fetchDocument, fetchDocumentContent, saveDocumentContent, updateDocumentTitle, type Citation, type ContentItem, type Document, type DocumentSection } from "@/lib/api"
 import { WorkspaceShell } from "@/components/layout/workspace-shell"
 import { SourcesPanel } from "@/components/panels/sources-panel"
+import { AssistantPanel } from "@/components/panels/assistant-panel"
 import { DocumentEditor } from "./document-editor"
 import { Input } from "@/components/ui/input"
 import { ArrowLeft, PanelLeftClose, PanelLeftOpen, PanelRightClose, PanelRightOpen } from "lucide-react"
@@ -283,17 +284,8 @@ export function DocumentWorkspace({ documentId }: Props) {
       rightCollapsed={!showAssistant}
       rightWidth={rightWidth}
       onRightResize={setRightWidth}
-        right={<PanelPlaceholder title="Assistant" />}
+        right={<AssistantPanel documentId={documentId} selectionText={selectionText} />}
       />
-    </div>
-  )
-}
-
-function PanelPlaceholder({ title }: { title: string; }) {
-  return (
-    <div className="flex h-full flex-col gap-4 p-4">
-      <h2 className="text-lg font-semibold">{title}</h2>
-      <div className="flex-1 rounded-lg border border-dashed bg-muted/40" />
     </div>
   )
 }
