@@ -18,8 +18,8 @@ const backendCitationSchemaRaw = z.object({
   createdAt: z.string().optional(),
 })
 
-export const backendCitationSchema = backendCitationSchemaRaw
-  .transform((data) => {
+export const backendCitationSchema = backendCitationSchemaRaw.transform(
+  (data) => {
     const document_id = data.document_id ?? data.documentId
     const content_id = data.content_id ?? data.contentId
     const position_in_doc = data.position_in_doc ?? data.position
@@ -36,19 +36,7 @@ export const backendCitationSchema = backendCitationSchemaRaw
       section_index,
       created_at: data.created_at ?? data.createdAt,
     }
-  })
-  .pipe(
-    z.object({
-      id: z.number().optional(),
-      document_id: z.number(),
-      content_id: z.number(),
-      citation_number: z.number().optional(),
-      marker: z.number().optional(),
-      position_in_doc: z.number().optional().nullable(),
-      position: z.number().optional().nullable(),
-      section_index: z.number().optional().nullable(),
-      created_at: z.string().optional(),
-    }),
-  )
+  },
+)
 
 export type BackendCitation = z.infer<typeof backendCitationSchema>

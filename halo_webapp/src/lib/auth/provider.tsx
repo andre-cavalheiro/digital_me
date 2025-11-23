@@ -79,7 +79,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           }
         }
 
-        setUser(resolvedUser)
+        setUser(resolvedUser as User)
         setOrganization(resolvedOrganization)
       } catch (err) {
         console.error("❌ Bootstrap failed:", err)
@@ -98,7 +98,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signOut = async () => {
     await firebaseSignOut(auth)
-    router.push("/") 
+    router.push("/")
   }
 
   return (

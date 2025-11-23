@@ -16,7 +16,7 @@ export interface User {
 }
 
 export interface Organization {
-  id: number
+  id?: number | null;
   name: string
 }
 
