@@ -170,13 +170,13 @@ db-migrate:
 db-migrate-prod:
 	@$(MAKE) validate-context
 	@echo "Starting port-forwarding for PostgreSQL..."
-	@kubectl port-forward svc/fury-api-postgresql 5432:5432 &
+	@kubectl port-forward svc/digital-me-api-postgresql 5432:5432 &
 	@sleep 3  # Give it a moment to establish the connection
 	@echo "Running database migration..."
 	@FURY_DB_URL=postgresql+psycopg://$$(grep -E '^FURY_DB_USER=' .env.prod | cut -d'=' -f2):$$(grep -E '^FURY_DB_PASSWORD=' .env.prod | cut -d'=' -f2)@127.0.0.1:5432/$$(grep -E '^FURY_DB_NAME=' .env.prod | cut -d'=' -f2) \
 	$(POETRY) run alembic --config $(ALEMBIC_CONFIG) upgrade head
 	@echo "Stopping port-forwarding..."
-	@pkill -f "kubectl port-forward svc/fury-api-postgresql 5432:5432"
+	@pkill -f "kubectl port-forward svc/digital-me-api-postgresql 5432:5432"
 
 .PHONY: db-rollback
 db-rollback:
@@ -269,7 +269,7 @@ generate-system-token:
 .PHONY: port-forward
 port-forward:
 	$(MAKE) validate-context  && \
-	kubectl port-forward svc/fury-api-postgresql 5432:5432
+	kubectl port-forward svc/digital-me-api-postgresql 5432:5432
 
 ################################################################################
 # Deploy
@@ -336,7 +336,7 @@ push-helm:
 .PHONY: restart-deployment
 restart-deployment:
 	@$(MAKE) validate-context
-	@kubectl rollout restart deployment fury-api
+	@kubectl rollout restart deployment digital-me-api
 
 
 .PHONY: tag
@@ -363,7 +363,7 @@ tag:
 .PHONY: prod-db-port-forward
 prod-db-port-forward:
 	$(MAKE) validate-context  && \
-	kubectl port-forward svc/fury-api-postgresql 5432:5432
+	kubectl port-forward svc/digital-me-api-postgresql 5432:5432
 
 .PHONY: prod-logs
 prod-logs:

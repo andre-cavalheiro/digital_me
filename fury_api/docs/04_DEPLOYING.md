@@ -63,7 +63,7 @@ Under the hood this is the sequence of steps that happen:
    What's happening under the hood is forwarding local traffic to the PostgreSQL instance:
 
    ```bash
-   kubectl port-forward svc/fury-api-postgresql 5432:5432
+   kubectl port-forward svc/digital-me-api-postgresql 5432:5432
    ```
 
    And updateing the database schema:
