@@ -3,6 +3,8 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, status
 
 from fury_api.domain import paths
+from fury_api.domain.content.models import ContentRead
+from fury_api.domain.content.services import ContentsService
 from fury_api.domain.users.models import User
 from fury_api.lib.dependencies import (
     FiltersAndSortsParser,
@@ -18,9 +20,6 @@ from .models import (
     CitationCreate,
     CitationRead,
     CitationUpdate,
-    Content,
-    ContentCreate,
-    ContentRead,
     DocumentSourceConfig,
     DocumentSourceConfigRead,
     Source,
@@ -41,7 +40,6 @@ from fury_api.lib.pagination import CursorPage
 from fury_api.lib.model_filters.models import Filter, FilterOp
 from .services import (
     CitationsService,
-    ContentsService,
     DocumentSourceConfigsService,
     SourceGroupMembersService,
     SourceGroupsService,
@@ -59,16 +57,6 @@ SOURCES_FILTERS_DEFINITION = ModelFilterAndSortDefinition(
         "is_active": get_default_ops_for_type(bool),
     },
     allowed_sorts={"id", "platform_type", "is_active", "created_at"},
-)
-
-CONTENTS_FILTERS_DEFINITION = ModelFilterAndSortDefinition(
-    model=Content,
-    allowed_filters={
-        "id": get_default_ops_for_type(Identifier),
-        "source_id": get_default_ops_for_type(int),
-        "published_at": get_default_ops_for_type(str),
-    },
-    allowed_sorts={"id", "source_id", "published_at", "synced_at", "created_at"},
 )
 
 SOURCE_GROUPS_FILTERS_DEFINITION = ModelFilterAndSortDefinition(
@@ -242,109 +230,6 @@ async def get_plugin_available_sources(
     ],
 ) -> list[dict]:
     raise Exception("Not Implemented Yet")
-
-
-# Content
-@sources_router.get(paths.CONTENTS, response_model=CursorPage[ContentRead])
-async def get_content_items(
-    content_service: Annotated[
-        ContentsService,
-        Depends(
-            get_service(
-                ServiceType.CONTENTS,
-                read_only=True,
-                uow=Depends(get_uow_tenant_ro),
-            )
-        ),
-    ],
-    filters_parser: Annotated[
-        FiltersAndSortsParser, Depends(get_models_filters_parser_factory(CONTENTS_FILTERS_DEFINITION))
-    ],
-) -> CursorPage[ContentRead]:
-    return await content_service.get_items_paginated(
-        model_filters=filters_parser.filters, model_sorts=filters_parser.sorts
-    )
-
-
-@sources_router.get(paths.CONTENTS_ID, response_model=ContentRead)
-async def get_content_item(
-    id_: int,
-    content_service: Annotated[
-        ContentsService,
-        Depends(
-            get_service(
-                ServiceType.CONTENTS,
-                read_only=True,
-                uow=Depends(get_uow_tenant_ro),
-            )
-        ),
-    ],
-) -> ContentRead:
-    content = await content_service.get_item(id_)
-    if not content:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Content not found")
-    return content
-
-
-@sources_router.post(paths.CONTENTS, response_model=ContentRead, status_code=status.HTTP_201_CREATED)
-async def create_content_item(
-    content_data: ContentCreate,
-    content_service: Annotated[
-        ContentsService,
-        Depends(
-            get_service(
-                ServiceType.CONTENTS,
-                read_only=False,
-                uow=Depends(get_uow_tenant),
-            )
-        ),
-    ],
-    current_user: Annotated[User, Depends(get_current_user)],
-) -> Content:
-    # Create Content with organization_id from current user
-    payload = content_data.model_dump(by_alias=True, exclude_unset=True, exclude_none=True)
-    payload["organization_id"] = current_user.organization_id
-    converted_content = Content.model_validate(payload)
-    return await content_service.create_item(converted_content)
-
-
-@sources_router.delete(paths.CONTENTS_ID, status_code=status.HTTP_204_NO_CONTENT)
-async def delete_content_item(
-    id_: int,
-    content_service: Annotated[
-        ContentsService,
-        Depends(get_service(ServiceType.CONTENTS)),
-    ],
-) -> None:
-    content = await content_service.get_item(id_)
-    if content is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Content not found")
-
-    try:
-        await content_service.delete_item(content)
-    except exceptions.ContentError as e:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
-
-
-@sources_router.post(paths.CONTENT_SEARCH, response_model=list[ContentRead])
-async def search_content(
-    content_service: Annotated[
-        ContentsService,
-        Depends(
-            get_service(
-                ServiceType.CONTENTS,
-                read_only=True,
-                uow=Depends(get_uow_tenant_ro),
-            )
-        ),
-    ],
-) -> list[ContentRead]:
-    # Simple search: return all content (TODO: Add actual search logic with filters/query)
-    # get_items() returns an async generator, so we need to consume it
-    results = []
-    async for item in content_service.get_items():
-        results.append(item)
-    return results
 
 
 # Source Groups

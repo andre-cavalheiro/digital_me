@@ -2,7 +2,6 @@ from fury_api.lib.exceptions import FuryAPIError
 
 __all__ = [
     "SourceError",
-    "ContentError",
     "SourceGroupError",
     "SourceGroupMemberError",
     "DocumentSourceConfigError",
@@ -11,10 +10,6 @@ __all__ = [
 
 
 class SourceError(FuryAPIError):
-    pass
-
-
-class ContentError(FuryAPIError):
     pass
 
 

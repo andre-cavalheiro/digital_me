@@ -1,0 +1,140 @@
+from typing import Annotated, Any
+
+from fastapi import APIRouter, Depends, HTTPException, status
+
+from fury_api.domain import paths
+from fury_api.domain.users.models import User
+from fury_api.lib.dependencies import (
+    FiltersAndSortsParser,
+    ServiceType,
+    get_models_filters_parser_factory,
+    get_service,
+    get_uow_tenant,
+    get_uow_tenant_ro,
+)
+from fury_api.lib.dependencies.integrations import get_x_client
+from fury_api.lib.integrations import XClient
+from . import exceptions
+from .models import Content, ContentCreate, ContentRead, ContentSearchRequest
+from fury_api.lib.security import get_current_user
+from fury_api.lib.db.base import Identifier
+from fury_api.lib.pagination import CursorPage
+from .services import ContentsService
+from fury_api.lib.model_filters import ModelFilterAndSortDefinition, get_default_ops_for_type
+
+content_router = APIRouter()
+
+CONTENTS_FILTERS_DEFINITION = ModelFilterAndSortDefinition(
+    model=Content,
+    allowed_filters={
+        "id": get_default_ops_for_type(Identifier),
+        "source_id": get_default_ops_for_type(int),
+        "published_at": get_default_ops_for_type(str),
+    },
+    allowed_sorts={"id", "source_id", "published_at", "synced_at", "created_at"},
+)
+
+
+@content_router.get(paths.CONTENTS, response_model=CursorPage[ContentRead])
+async def get_content_items(
+    content_service: Annotated[
+        ContentsService,
+        Depends(
+            get_service(
+                ServiceType.CONTENTS,
+                read_only=True,
+                uow=Depends(get_uow_tenant_ro),
+            )
+        ),
+    ],
+    filters_parser: Annotated[
+        FiltersAndSortsParser, Depends(get_models_filters_parser_factory(CONTENTS_FILTERS_DEFINITION))
+    ],
+) -> CursorPage[ContentRead]:
+    return await content_service.get_items_paginated(
+        model_filters=filters_parser.filters, model_sorts=filters_parser.sorts
+    )
+
+
+@content_router.get(paths.CONTENTS_ID, response_model=ContentRead)
+async def get_content_item(
+    id_: int,
+    content_service: Annotated[
+        ContentsService,
+        Depends(
+            get_service(
+                ServiceType.CONTENTS,
+                read_only=True,
+                uow=Depends(get_uow_tenant_ro),
+            )
+        ),
+    ],
+) -> ContentRead:
+    content = await content_service.get_item(id_)
+    if not content:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Content not found")
+    return content
+
+
+@content_router.post(paths.CONTENTS, response_model=ContentRead, status_code=status.HTTP_201_CREATED)
+async def create_content_item(
+    content_data: ContentCreate,
+    content_service: Annotated[
+        ContentsService,
+        Depends(
+            get_service(
+                ServiceType.CONTENTS,
+                read_only=False,
+                uow=Depends(get_uow_tenant),
+            )
+        ),
+    ],
+    current_user: Annotated[User, Depends(get_current_user)],
+) -> Content:
+    payload = content_data.model_dump(by_alias=True, exclude_unset=True, exclude_none=True)
+    payload["organization_id"] = current_user.organization_id
+    converted_content = Content.model_validate(payload)
+    return await content_service.create_item(converted_content)
+
+
+@content_router.delete(paths.CONTENTS_ID, status_code=status.HTTP_204_NO_CONTENT)
+async def delete_content_item(
+    id_: int,
+    content_service: Annotated[
+        ContentsService,
+        Depends(get_service(ServiceType.CONTENTS)),
+    ],
+) -> None:
+    content = await content_service.get_item(id_)
+    if content is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Content not found")
+
+    try:
+        await content_service.delete_item(content)
+    except exceptions.ContentError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
+
+
+@content_router.post(paths.CONTENT_SEARCH, response_model=list[dict[str, Any]])
+async def search_content(
+    search: ContentSearchRequest,
+    content_service: Annotated[
+        ContentsService,
+        Depends(
+            get_service(
+                ServiceType.CONTENTS,
+                read_only=True,
+                uow=Depends(get_uow_tenant_ro),
+            )
+        ),
+    ],
+    x_client: Annotated[XClient, Depends(get_x_client)],
+) -> list[dict[str, Any]]:
+    """
+    # Simple search: return all content (TODO: Add actual search logic with filters/query)
+    # get_items() returns an async generator, so we need to consume it
+    results = []
+    async for item in content_service.get_items():
+        results.append(item)
+    """
+    return await content_service.search_external_sources(search, x_client=x_client)

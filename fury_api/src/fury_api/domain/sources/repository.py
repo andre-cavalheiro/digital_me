@@ -1,16 +1,8 @@
-from .models import (
-    Citation,
-    Content,
-    DocumentSourceConfig,
-    Source,
-    SourceGroup,
-    SourceGroupMember,
-)
+from .models import Citation, DocumentSourceConfig, Source, SourceGroup, SourceGroupMember
 from fury_api.lib.repository import GenericSqlExtendedRepository
 
 __all__ = [
     "SourceRepository",
-    "ContentRepository",
     "SourceGroupRepository",
     "SourceGroupMemberRepository",
     "DocumentSourceConfigRepository",
@@ -21,11 +13,6 @@ __all__ = [
 class SourceRepository(GenericSqlExtendedRepository[Source]):
     def __init__(self) -> None:
         super().__init__(model_cls=Source)
-
-
-class ContentRepository(GenericSqlExtendedRepository[Content]):
-    def __init__(self) -> None:
-        super().__init__(model_cls=Content)
 
 
 class SourceGroupRepository(GenericSqlExtendedRepository[SourceGroup]):

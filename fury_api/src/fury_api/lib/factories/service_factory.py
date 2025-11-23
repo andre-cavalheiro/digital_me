@@ -54,7 +54,7 @@ class ServiceFactory:
             dependencies={},
         ),
         ServiceType.CONTENTS: ServiceConfig(
-            domain="sources",
+            domain="content",
             class_name="ContentsService",
             dependencies={},
         ),

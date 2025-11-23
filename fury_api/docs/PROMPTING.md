@@ -1,0 +1,1 @@
+Please consider that fury has a lot of re-usable logic that we should always use when possible (via the SqlService and GenericSqlExtendedRepository classes and the model_filters operations). Whenever possible we should try and use those.  In case custom sql logic is required, make sure to add it in the domain's respective repository.

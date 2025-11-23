@@ -145,11 +145,11 @@ class UnitOfWork(AsyncSqlAlchemyUnitOfWork):
         from fury_api.domain.organizations.repository import OrganizationRepository
         from fury_api.domain.users.repository import UserRepository
         from fury_api.domain.plugins.repository import PluginRepository
+        from fury_api.domain.content.repository import ContentRepository
         from fury_api.domain.documents.repository import DocumentRepository, DocumentContentRepository
         from fury_api.domain.conversations.repository import ConversationRepository, MessageRepository
         from fury_api.domain.sources.repository import (
             SourceRepository,
-            ContentRepository,
             SourceGroupRepository,
             SourceGroupMemberRepository,
             DocumentSourceConfigRepository,
@@ -159,12 +159,12 @@ class UnitOfWork(AsyncSqlAlchemyUnitOfWork):
         self.organizations = OrganizationRepository()
         self.users = UserRepository()
         self.plugins = PluginRepository()
+        self.contents = ContentRepository()
         self.documents = DocumentRepository()
         self.document_contents = DocumentContentRepository()
         self.conversations = ConversationRepository()
         self.messages = MessageRepository()
         self.sources = SourceRepository()
-        self.contents = ContentRepository()
         self.source_groups = SourceGroupRepository()
         self.source_group_members = SourceGroupMemberRepository()
         self.document_source_configs = DocumentSourceConfigRepository()
@@ -176,12 +176,12 @@ class UnitOfWork(AsyncSqlAlchemyUnitOfWork):
                 self.organizations,
                 self.users,
                 self.plugins,
+                self.contents,
                 self.documents,
                 self.document_contents,
                 self.conversations,
                 self.messages,
                 self.sources,
-                self.contents,
                 self.source_groups,
                 self.source_group_members,
                 self.document_source_configs,

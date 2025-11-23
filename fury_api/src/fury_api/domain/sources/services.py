@@ -1,24 +1,11 @@
-from typing import TYPE_CHECKING
-
-from .models import (
-    Citation,
-    Content,
-    DocumentSourceConfig,
-    Source,
-    SourceGroup,
-    SourceGroupMember,
-)
+from .models import Citation, DocumentSourceConfig, Source, SourceGroup, SourceGroupMember
 from fury_api.lib.unit_of_work import UnitOfWork
 from fury_api.domain.users.models import User
 
 from fury_api.lib.service import SqlService
 
-if TYPE_CHECKING:
-    pass
-
 __all__ = [
     "SourcesService",
-    "ContentsService",
     "SourceGroupsService",
     "SourceGroupMembersService",
     "DocumentSourceConfigsService",
@@ -35,17 +22,6 @@ class SourcesService(SqlService[Source]):
         **kwargs,
     ):
         super().__init__(Source, uow, auth_user=auth_user, **kwargs)
-
-
-class ContentsService(SqlService[Content]):
-    def __init__(
-        self,
-        uow: UnitOfWork,
-        *,
-        auth_user: User | None = None,
-        **kwargs,
-    ):
-        super().__init__(Content, uow, auth_user=auth_user, **kwargs)
 
 
 class SourceGroupsService(SqlService[SourceGroup]):

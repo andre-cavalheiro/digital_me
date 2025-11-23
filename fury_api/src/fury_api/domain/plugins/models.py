@@ -15,6 +15,7 @@ __all__ = ["Plugin", "PluginCreate", "PluginRead", "PluginUpdate", "PluginDataSo
 
 class PluginDataSource(str, Enum):
     """Allowed plugin data sources."""
+
     X = "x"
     COMMUNITY_ARCHIVE = "community_archive"
 
@@ -62,9 +63,7 @@ class PluginCreate(PluginBase):
         """Validate that data_source is a supported plugin type."""
         allowed_sources = {source.value for source in PluginDataSource}
         if v not in allowed_sources:
-            raise ValueError(
-                f"Invalid data_source '{v}'. Must be one of: {', '.join(allowed_sources)}"
-            )
+            raise ValueError(f"Invalid data_source '{v}'. Must be one of: {', '.join(allowed_sources)}")
         return v
 
 
