@@ -12,6 +12,7 @@ import { cn } from "@/lib/utils"
 import { toast } from "sonner"
 import { PageHeader } from "@/components/ui/page-header"
 import { PLUGIN_DATA_SOURCES } from "@/lib/plugin-data-sources"
+import { startXOauth } from "@/lib/integrations/x/oauth"
 
 export default function PluginsPage() {
   const [plugins, setPlugins] = useState<Plugin[]>([])
@@ -39,13 +40,25 @@ export default function PluginsPage() {
   const handleInstall = async (platformId: string, platformDisplayName: string) => {
     setInstallingPlugin(platformId)
     try {
-      const newPlugin = await createPlugin({
-        title: platformDisplayName,
-        data_source: platformId as any,
-        credentials: {},
-        properties: {},
-      })
-      setPlugins(prev => [...prev, newPlugin])
+      const existing = getPluginForPlatform(platformId)
+      const plugin = existing
+        ? existing
+        : await createPlugin({
+            title: platformDisplayName,
+            data_source: platformId as any,
+            credentials: { status: "pending" },
+            properties: {},
+          })
+
+      if (!existing) {
+        setPlugins(prev => [...prev, plugin])
+      }
+
+      if (platformId === "x") {
+        await startXOauth(plugin.id, "/plugins", !existing)
+        return
+      }
+
       toast.success(`${platformDisplayName} integration installed successfully`)
       setInstallDialogOpen(false)
     } catch (error) {
