@@ -3,6 +3,14 @@
 import { useEffect, useRef, useState } from "react"
 import type { ContentItem, DocumentSection, TwitterPlatformMetadata } from "@/lib/api"
 import Image from "next/image"
+import { GripVertical, MoreVertical, Plus, Trash2, Copy } from "lucide-react"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 
 type SelectionContext = {
   text: string
@@ -18,10 +26,14 @@ type DocumentEditorProps = {
   onBlurSave?: () => void
   onDropCitation?: (sectionIndex: number, position: number, contentId: number) => void
   onDropEmbeddedContent?: (afterSectionIndex: number, contentId: number) => void
+  onCreateSection?: (afterSectionIndex: number) => void
+  onDeleteSection?: (sectionIndex: number) => void
+  onDuplicateSection?: (sectionIndex: number) => void
+  onReorderSection?: (fromIndex: number, toIndex: number) => void
   contentCache?: Record<number, ContentItem>
 }
 
-export function DocumentEditor({ sections, onSectionsChange, onSelectionChange, onBlurSave, onDropCitation, onDropEmbeddedContent, contentCache = {} }: DocumentEditorProps) {
+export function DocumentEditor({ sections, onSectionsChange, onSelectionChange, onBlurSave, onDropCitation, onDropEmbeddedContent, onCreateSection, onDeleteSection, onDuplicateSection, onReorderSection, contentCache = {} }: DocumentEditorProps) {
   const [selected, setSelected] = useState<number | null>(null)
   const textareasRef = useRef<Array<HTMLTextAreaElement | null>>([])
   const containerRefs = useRef<Array<HTMLDivElement | null>>([])
@@ -32,7 +44,11 @@ export function DocumentEditor({ sections, onSectionsChange, onSelectionChange, 
     top: number
     height: number
   } | null>(null)
-  const [dropZoneHovered, setDropZoneHovered] = useState<number | null>(null)
+  const [hoveredSection, setHoveredSection] = useState<number | null>(null)
+  const [isCanvasHovered, setIsCanvasHovered] = useState(false)
+  const [draggedSectionIndex, setDraggedSectionIndex] = useState<number | null>(null)
+  const [dropTargetIndex, setDropTargetIndex] = useState<number | null>(null)
+  const [embeddingDropTarget, setEmbeddingDropTarget] = useState<number | null>(null)
   const rafRef = useRef<number | null>(null)
 
   useEffect(() => {
@@ -70,12 +86,32 @@ export function DocumentEditor({ sections, onSectionsChange, onSelectionChange, 
   }
 
   const handleKeyDown = (event: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (event.key !== "Enter") return
     const target = event.currentTarget
     const index = Number(target.dataset.sectionIndex)
     const value = target.value
     const start = target.selectionStart ?? value.length
     const end = target.selectionEnd ?? start
+
+    // Cmd/Ctrl + Shift + Backspace deletes the section
+    if (event.key === "Backspace" && (event.metaKey || event.ctrlKey) && event.shiftKey) {
+      event.preventDefault()
+      if (onDeleteSection) {
+        onDeleteSection(index)
+      }
+      return
+    }
+
+    // Cmd/Ctrl + Enter creates a new section below
+    if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
+      event.preventDefault()
+      if (onCreateSection) {
+        onCreateSection(index)
+        requestAnimationFrame(() => focusSection(index + 1, "start"))
+      }
+      return
+    }
+
+    if (event.key !== "Enter") return
 
     // Shift+Enter keeps a single newline inside the section
     if (event.shiftKey) {
@@ -152,32 +188,151 @@ export function DocumentEditor({ sections, onSectionsChange, onSelectionChange, 
     onDropCitation(sectionIndex, caret, contentId)
   }
 
-  const handleDropZoneDragOver = (event: React.DragEvent<HTMLDivElement>, afterIndex: number) => {
-    if (!onDropEmbeddedContent) return
-    event.preventDefault()
-    event.stopPropagation()
-    setDropZoneHovered(afterIndex)
+  const handleSectionDragStart = (event: React.DragEvent, sectionIndex: number) => {
+    try {
+      // Safety check: ensure valid section index
+      if (sectionIndex < 0 || sectionIndex >= sections.length) return
+
+      setDraggedSectionIndex(sectionIndex)
+      event.dataTransfer.effectAllowed = "move"
+
+      // Set a transparent drag image
+      const dragImage = document.createElement("div")
+      dragImage.style.opacity = "0"
+      document.body.appendChild(dragImage)
+      event.dataTransfer.setDragImage(dragImage, 0, 0)
+      setTimeout(() => {
+        if (document.body.contains(dragImage)) {
+          document.body.removeChild(dragImage)
+        }
+      }, 0)
+    } catch (error) {
+      console.error("Error in handleSectionDragStart:", error)
+      setDraggedSectionIndex(null)
+    }
   }
 
-  const handleDropZoneDragLeave = (event: React.DragEvent<HTMLDivElement>) => {
-    event.preventDefault()
-    event.stopPropagation()
-    setDropZoneHovered(null)
+  const handleSectionDragOver = (event: React.DragEvent, targetIndex: number) => {
+    try {
+      if (draggedSectionIndex === null) return
+
+      // Safety check: ensure valid indices
+      if (targetIndex < 0 || targetIndex >= sections.length) return
+      if (draggedSectionIndex < 0 || draggedSectionIndex >= sections.length) {
+        setDraggedSectionIndex(null)
+        return
+      }
+
+      event.preventDefault()
+      event.dataTransfer.dropEffect = "move"
+
+      // Determine if drop should be before or after based on mouse position
+      const rect = event.currentTarget.getBoundingClientRect()
+      const midpoint = rect.top + rect.height / 2
+      const dropIndex = event.clientY < midpoint ? targetIndex : targetIndex + 1
+
+      setDropTargetIndex(dropIndex)
+    } catch (error) {
+      console.error("Error in handleSectionDragOver:", error)
+      setDropTargetIndex(null)
+    }
   }
 
-  const handleDropZoneDrop = (event: React.DragEvent<HTMLDivElement>, afterIndex: number) => {
+  const handleSectionDrop = (event: React.DragEvent) => {
+    try {
+      event.preventDefault()
+
+      // Safety checks
+      if (draggedSectionIndex === null || dropTargetIndex === null || !onReorderSection) {
+        return
+      }
+
+      if (draggedSectionIndex < 0 || draggedSectionIndex >= sections.length) {
+        return
+      }
+
+      if (dropTargetIndex < 0 || dropTargetIndex > sections.length) {
+        return
+      }
+
+      // Calculate the final index after removal
+      let finalIndex = dropTargetIndex
+      if (dropTargetIndex > draggedSectionIndex) {
+        finalIndex = dropTargetIndex - 1
+      }
+
+      // Only reorder if indices are different and valid
+      if (finalIndex !== draggedSectionIndex && finalIndex >= 0 && finalIndex < sections.length) {
+        onReorderSection(draggedSectionIndex, finalIndex)
+      }
+    } catch (error) {
+      console.error("Error in handleSectionDrop:", error)
+    } finally {
+      // Always clean up drag state
+      setDraggedSectionIndex(null)
+      setDropTargetIndex(null)
+    }
+  }
+
+  const handleSectionDragEnd = () => {
+    setDraggedSectionIndex(null)
+    setDropTargetIndex(null)
+  }
+
+  const handleEmbeddingDragOver = (event: React.DragEvent, afterSectionIndex: number) => {
     if (!onDropEmbeddedContent) return
+
+    // Only handle if we're NOT dragging a section (i.e., dragging content from sources)
+    if (draggedSectionIndex !== null) return
+
+    try {
+      const contentId = event.dataTransfer?.types?.includes("application/x-content-id")
+      if (!contentId) return
+
+      event.preventDefault()
+      event.stopPropagation()
+      setEmbeddingDropTarget(afterSectionIndex)
+    } catch (error) {
+      console.error("Error in handleEmbeddingDragOver:", error)
+    }
+  }
+
+  const handleEmbeddingDragLeave = (event: React.DragEvent) => {
     event.preventDefault()
     event.stopPropagation()
-    const contentId = Number.parseInt(event.dataTransfer?.getData("application/x-content-id") ?? "", 10)
-    if (Number.isNaN(contentId)) return
-    setDropZoneHovered(null)
-    onDropEmbeddedContent(afterIndex, contentId)
+    setEmbeddingDropTarget(null)
+  }
+
+  const handleEmbeddingDrop = (event: React.DragEvent, afterSectionIndex: number) => {
+    if (!onDropEmbeddedContent) return
+
+    try {
+      event.preventDefault()
+      event.stopPropagation()
+
+      const contentId = Number.parseInt(event.dataTransfer?.getData("application/x-content-id") ?? "", 10)
+      if (Number.isNaN(contentId)) return
+
+      setEmbeddingDropTarget(null)
+      onDropEmbeddedContent(afterSectionIndex, contentId)
+    } catch (error) {
+      console.error("Error in handleEmbeddingDrop:", error)
+      setEmbeddingDropTarget(null)
+    }
   }
 
   useEffect(() => {
     return () => {
-      if (rafRef.current) cancelAnimationFrame(rafRef.current)
+      // Clean up any pending animation frames
+      if (rafRef.current) {
+        cancelAnimationFrame(rafRef.current)
+        rafRef.current = null
+      }
+      // Clean up drag state on unmount
+      setDraggedSectionIndex(null)
+      setDropTargetIndex(null)
+      setEmbeddingDropTarget(null)
+      setDragCaret(null)
     }
   }, [])
 
@@ -215,23 +370,30 @@ export function DocumentEditor({ sections, onSectionsChange, onSelectionChange, 
   const displaySections = sections.length > 0 ? sections : [{ content: "", id: undefined, document_id: 0, order_index: 0, title: null, word_count: 0, updated_at: undefined } as DocumentSection]
 
   return (
-    <div className="flex flex-col gap-4 max-w-3xl mx-auto w-full">
+    <div
+      className="flex flex-col gap-4 max-w-3xl mx-auto w-full"
+      onMouseEnter={() => setIsCanvasHovered(true)}
+      onMouseLeave={() => setIsCanvasHovered(false)}
+    >
       {displaySections.map((section, idx) => (
         <div key={idx}>
-          {/* Drop zone before first section */}
+          {/* Blue drop line indicator at the beginning (for section reordering) */}
+          {idx === 0 && dropTargetIndex === 0 && draggedSectionIndex !== null && (
+            <div className="relative h-0.5 my-2">
+              <div className="absolute inset-0 bg-blue-500 rounded-full shadow-sm" />
+            </div>
+          )}
+
+          {/* Invisible drop zone before first section (for embedding content) */}
           {idx === 0 && onDropEmbeddedContent && (
             <div
-              className={`transition-all ${
-                dropZoneHovered === -1
-                  ? "h-24 mb-4 border-2 border-dashed border-sky-400 bg-sky-50 rounded-lg flex items-center justify-center"
-                  : "h-2 mb-2"
-              }`}
-              onDragOver={(e) => handleDropZoneDragOver(e, -1)}
-              onDragLeave={handleDropZoneDragLeave}
-              onDrop={(e) => handleDropZoneDrop(e, -1)}
+              className="relative h-2 my-2"
+              onDragOver={(e) => handleEmbeddingDragOver(e, -1)}
+              onDragLeave={handleEmbeddingDragLeave}
+              onDrop={(e) => handleEmbeddingDrop(e, -1)}
             >
-              {dropZoneHovered === -1 && (
-                <p className="text-sm text-sky-600 font-medium">Drop here to embed content</p>
+              {embeddingDropTarget === -1 && (
+                <div className="absolute inset-0 h-0.5 bg-blue-500 rounded-full shadow-sm" />
               )}
             </div>
           )}
@@ -239,7 +401,38 @@ export function DocumentEditor({ sections, onSectionsChange, onSelectionChange, 
           {/* Section */}
           {section.embedded_content_id ? (
             // Embedded content section (tweet or other content)
-            <div className="px-5 py-4">
+            <div
+              className={`relative px-5 py-4 ${draggedSectionIndex === idx ? "opacity-50" : ""}`}
+              onMouseEnter={() => setHoveredSection(idx)}
+              onMouseLeave={() => setHoveredSection(null)}
+              onDragOver={(e) => handleSectionDragOver(e, idx)}
+              onDrop={handleSectionDrop}
+              onDragEnd={handleSectionDragEnd}
+              onClick={() => {
+                setSelected(idx)
+                onSelectionChange?.({ text: "", start: 0, end: 0, sectionIndex: idx })
+              }}
+            >
+              {/* Drag handle - visible when hovering canvas */}
+              <SectionDragHandle
+                visible={isCanvasHovered}
+                onDragStart={(e) => handleSectionDragStart(e, idx)}
+              />
+
+              {/* Control bar - visible only when selected */}
+              {(onCreateSection || onDeleteSection || onDuplicateSection) && (
+                <SectionControlBar
+                  visible={selected === idx}
+                  onAddBelow={() => {
+                    onCreateSection?.(idx)
+                    requestAnimationFrame(() => focusSection(idx + 1, "start"))
+                  }}
+                  onDelete={() => onDeleteSection?.(idx)}
+                  onDuplicate={() => onDuplicateSection?.(idx)}
+                  canDelete={displaySections.length > 1}
+                />
+              )}
+
               {renderEmbeddedContent(section)}
             </div>
           ) : (
@@ -248,16 +441,43 @@ export function DocumentEditor({ sections, onSectionsChange, onSelectionChange, 
               ref={(el) => {
                 containerRefs.current[idx] = el
               }}
-              className={`relative rounded-lg transition-all ${indicatorClass(idx)}`}
+              className={`relative rounded-lg transition-all ${indicatorClass(idx)} ${
+                draggedSectionIndex === idx ? "opacity-50" : ""
+              }`}
               onClick={() => {
                 setSelected(idx)
                 onSelectionChange?.({ text: section.content, start: 0, end: 0, sectionIndex: idx })
                 focusSection(idx, "end")
               }}
+              onMouseEnter={() => setHoveredSection(idx)}
+              onMouseLeave={() => setHoveredSection(null)}
+              onDragOver={(e) => handleSectionDragOver(e, idx)}
+              onDrop={handleSectionDrop}
+              onDragEnd={handleSectionDragEnd}
               onDragLeave={() => {
                 setDragCaret((current) => (current?.sectionIndex === idx ? null : current))
               }}
             >
+              {/* Drag handle - visible when hovering canvas */}
+              <SectionDragHandle
+                visible={isCanvasHovered}
+                onDragStart={(e) => handleSectionDragStart(e, idx)}
+              />
+
+              {/* Control bar - visible only when selected */}
+              {(onCreateSection || onDeleteSection || onDuplicateSection) && (
+                <SectionControlBar
+                  visible={selected === idx}
+                  onAddBelow={() => {
+                    onCreateSection?.(idx)
+                    requestAnimationFrame(() => focusSection(idx + 1, "start"))
+                  }}
+                  onDelete={() => onDeleteSection?.(idx)}
+                  onDuplicate={() => onDuplicateSection?.(idx)}
+                  canDelete={displaySections.length > 1}
+                />
+              )}
+
               {dragCaret?.sectionIndex === idx && (
                 <div
                   className="pointer-events-none absolute"
@@ -294,20 +514,23 @@ export function DocumentEditor({ sections, onSectionsChange, onSelectionChange, 
             </div>
           )}
 
-          {/* Drop zone after this section */}
+          {/* Blue drop line indicator (for section reordering) */}
+          {dropTargetIndex === idx + 1 && draggedSectionIndex !== null && (
+            <div className="relative h-0.5 my-2">
+              <div className="absolute inset-0 bg-blue-500 rounded-full shadow-sm" />
+            </div>
+          )}
+
+          {/* Invisible drop zone after each section (for embedding content) */}
           {onDropEmbeddedContent && (
             <div
-              className={`transition-all ${
-                dropZoneHovered === idx
-                  ? "h-24 my-4 border-2 border-dashed border-sky-400 bg-sky-50 rounded-lg flex items-center justify-center"
-                  : "h-2 my-2"
-              }`}
-              onDragOver={(e) => handleDropZoneDragOver(e, idx)}
-              onDragLeave={handleDropZoneDragLeave}
-              onDrop={(e) => handleDropZoneDrop(e, idx)}
+              className="relative h-2 my-2"
+              onDragOver={(e) => handleEmbeddingDragOver(e, idx)}
+              onDragLeave={handleEmbeddingDragLeave}
+              onDrop={(e) => handleEmbeddingDrop(e, idx)}
             >
-              {dropZoneHovered === idx && (
-                <p className="text-sm text-sky-600 font-medium">Drop here to embed content</p>
+              {embeddingDropTarget === idx && (
+                <div className="absolute inset-0 h-0.5 bg-blue-500 rounded-full shadow-sm" />
               )}
             </div>
           )}
@@ -390,6 +613,93 @@ function getMirror(textarea: HTMLTextAreaElement) {
 function autoSize(textarea: HTMLTextAreaElement) {
   textarea.style.height = "auto"
   textarea.style.height = `${textarea.scrollHeight}px`
+}
+
+function SectionDragHandle({
+  visible,
+  onDragStart,
+}: {
+  visible: boolean
+  onDragStart?: (event: React.DragEvent) => void
+}) {
+  return (
+    <div
+      className={`absolute -left-10 top-0 h-full w-10 z-10 flex items-start pt-2 transition-opacity ${
+        visible ? "opacity-100" : "opacity-0 pointer-events-none"
+      }`}
+    >
+      <div
+        draggable={onDragStart !== undefined}
+        onDragStart={onDragStart}
+        className="flex h-5 w-5 cursor-grab items-center justify-center rounded text-slate-300 transition hover:text-slate-500 active:cursor-grabbing"
+        role="button"
+        aria-label="Drag to reorder"
+      >
+        <GripVertical className="h-3.5 w-3.5" />
+      </div>
+    </div>
+  )
+}
+
+function SectionControlBar({
+  visible,
+  onAddBelow,
+  onDelete,
+  onDuplicate,
+  canDelete,
+}: {
+  visible: boolean
+  onAddBelow: () => void
+  onDelete: () => void
+  onDuplicate: () => void
+  canDelete: boolean
+}) {
+  return (
+    <div
+      className={`absolute -top-1 right-2 transition-opacity ${
+        visible ? "opacity-100" : "opacity-0 pointer-events-none"
+      }`}
+    >
+      <div className="flex items-center gap-1 rounded border border-slate-200 bg-white px-1 py-0.5 shadow-sm">
+        <button
+          type="button"
+          onClick={onAddBelow}
+          className="flex h-6 w-6 items-center justify-center rounded text-slate-500 transition hover:bg-slate-100 hover:text-slate-700"
+          aria-label="Add section below"
+        >
+          <Plus className="h-3.5 w-3.5" />
+        </button>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button
+              type="button"
+              className="flex h-6 w-6 items-center justify-center rounded text-slate-500 transition hover:bg-slate-100 hover:text-slate-700"
+              aria-label="Section options"
+            >
+              <MoreVertical className="h-3.5 w-3.5" />
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-48">
+            <DropdownMenuItem onClick={onDuplicate}>
+              <Copy className="mr-2 h-4 w-4" />
+              <span>Duplicate section</span>
+              <span className="ml-auto text-xs text-slate-500">⌘D</span>
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              onClick={onDelete}
+              disabled={!canDelete}
+              className="text-red-600 focus:text-red-600"
+            >
+              <Trash2 className="mr-2 h-4 w-4" />
+              <span>Delete section</span>
+              <span className="ml-auto text-xs text-slate-500">⌘⇧⌫</span>
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
+    </div>
+  )
 }
 
 function EmbeddedTweetCard({ item, metadata }: { item: ContentItem; metadata: TwitterPlatformMetadata }) {

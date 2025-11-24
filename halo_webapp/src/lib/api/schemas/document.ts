@@ -38,7 +38,7 @@ export const documentSectionSchema = z
     content: data.content ?? "",
     order_index: data.order_index ?? data.orderIndex ?? 0,
     title: data.title ?? null,
-    word_count: data.word_count ?? data.wordCount,
+    word_count: data.word_count ?? data.wordCount ?? undefined,
     updated_at: data.updated_at ?? data.updatedAt,
     embedded_content_id: data.embedded_content_id ?? data.embeddedContentId ?? null,
   }))

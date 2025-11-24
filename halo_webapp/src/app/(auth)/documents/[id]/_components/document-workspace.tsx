@@ -197,6 +197,88 @@ export function DocumentWorkspace({ documentId }: Props) {
     }
   }
 
+  const handleCreateSection = (afterSectionIndex: number) => {
+    const insertIndex = afterSectionIndex + 1
+    const newSection: DocumentSection = {
+      document_id: documentId,
+      content: "",
+      order_index: insertIndex,
+      embedded_content_id: null,
+    }
+
+    setSections((previous) => {
+      const next = [...previous]
+      next.splice(insertIndex, 0, newSection)
+      return next
+    })
+  }
+
+  const handleDeleteSection = (sectionIndex: number) => {
+    // Prevent deleting the only section
+    if (sections.length <= 1) {
+      toast.error("Cannot delete the only section in the document.")
+      return
+    }
+
+    const section = sections[sectionIndex]
+    if (!section) return
+
+    // Confirm deletion for non-empty text sections or embedded content
+    const isEmpty = !section.embedded_content_id && section.content.trim() === ""
+    const shouldConfirm = !isEmpty
+
+    if (shouldConfirm) {
+      const message = section.embedded_content_id
+        ? "Delete this embedded content section?"
+        : "Delete this section? This cannot be undone."
+
+      // Simple browser confirm (we can enhance this later with a modal if needed)
+      if (!window.confirm(message)) {
+        return
+      }
+    }
+
+    // Delete the section
+    setSections((previous) => {
+      const next = [...previous]
+      next.splice(sectionIndex, 1)
+      return next
+    })
+
+    // Focus management: move to section above or below
+    // This will be handled by the editor's useEffect that checks selected index
+  }
+
+  const handleDuplicateSection = (sectionIndex: number) => {
+    const section = sections[sectionIndex]
+    if (!section) return
+
+    const duplicatedSection: DocumentSection = {
+      document_id: documentId,
+      content: section.content,
+      order_index: sectionIndex + 1,
+      embedded_content_id: section.embedded_content_id,
+      title: section.title,
+    }
+
+    setSections((previous) => {
+      const next = [...previous]
+      next.splice(sectionIndex + 1, 0, duplicatedSection)
+      return next
+    })
+
+    toast.success("Section duplicated")
+  }
+
+  const handleReorderSection = (fromIndex: number, toIndex: number) => {
+    setSections((previous) => {
+      const next = [...previous]
+      const [removed] = next.splice(fromIndex, 1)
+      next.splice(toIndex, 0, removed)
+      return next
+    })
+  }
+
   const handleTitleSave = async () => {
     if (!document) return
     const nextTitle = titleValue.trim()
@@ -314,7 +396,7 @@ export function DocumentWorkspace({ documentId }: Props) {
         leftWidth={leftWidth}
         onLeftResize={setLeftWidth}
         center={
-          <div className="flex flex-col gap-4 px-6 py-8 pb-80">
+          <div className="flex flex-col gap-4 pl-16 pr-6 py-8 pb-80">
           <DocumentEditor
             sections={sections}
             onSectionsChange={handleSectionsChange}
@@ -322,6 +404,10 @@ export function DocumentWorkspace({ documentId }: Props) {
             onBlurSave={persistSections}
             onDropCitation={handleCitationDrop}
             onDropEmbeddedContent={handleEmbeddedContentDrop}
+            onCreateSection={handleCreateSection}
+            onDeleteSection={handleDeleteSection}
+            onDuplicateSection={handleDuplicateSection}
+            onReorderSection={handleReorderSection}
             contentCache={contentCache}
           />
         </div>
