@@ -23,7 +23,6 @@ export const messageSchema = z.object({
   role: z.enum(["user", "assistant", "system"]),
   content: z.string(),
   created_at: z.string().optional(),
-  context_sources: messageContextSchema.nullable().optional(),
   status: z.enum(["queued", "running", "completed", "failed"]).default("completed"),
   metadata: z.record(z.string(), z.unknown()).nullable().optional(),
 })

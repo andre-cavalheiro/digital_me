@@ -221,7 +221,7 @@ async def create_message(
     current_user: Annotated[User, Depends(get_current_user)],
 ) -> Message:
     user_message = Message(
-        **message.model_dump(),
+        **message.model_dump(exclude={"context_sources"}, exclude_none=True),
         organization_id=current_user.organization_id,
         conversation_id=id_,
         status=MessageStatus.COMPLETED,
@@ -239,7 +239,6 @@ async def create_message(
     assistant_message = Message(
         role="assistant",
         content=f"(Mock assistant) Echo: {message.content}",
-        context_sources=message.context_sources,
         conversation_id=id_,
         organization_id=current_user.organization_id,
         status=MessageStatus.COMPLETED,

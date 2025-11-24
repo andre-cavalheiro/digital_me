@@ -5,7 +5,7 @@ from enum import Enum
 from typing import Any
 
 import sqlalchemy as sa
-from pydantic import ConfigDict, field_validator
+from pydantic import BaseModel, ConfigDict, Field as PydanticField, field_validator
 from sqlmodel import Field
 
 from fury_api.lib.db.base import BaseSQLModel, BigIntIDModel
@@ -62,10 +62,26 @@ class ConversationUpdate(BaseSQLModel):
     document_id: int | None = None
 
 
+class ContextSelection(BaseModel):
+    text: str
+    section_index: int | None = PydanticField(default=None)
+    start: int | None = PydanticField(default=None)
+    end: int | None = PydanticField(default=None)
+
+    model_config = ConfigDict(extra="forbid")
+
+
+class ContextSources(BaseModel):
+    section_ids: list[int] = PydanticField(default_factory=list)
+    content_ids: list[int] = PydanticField(default_factory=list)
+    selection: ContextSelection | None = None
+
+    model_config = ConfigDict(extra="forbid")
+
+
 class MessageBase(BaseSQLModel):
     role: str
     content: str
-    context_sources: list[int] | None = None
 
 
 class MessageStatus(str, Enum):
@@ -88,7 +104,6 @@ class Message(MessageBase, BigIntIDModel, table=True):
     organization_id: int = Field(sa_type=sa.BigInteger, foreign_key="organization.id", nullable=False)
     role: str = Field(nullable=False)
     content: str = Field(nullable=False)
-    context_sources: list[int] | None = Field(default=None, sa_type=sa.JSON, nullable=True)
     status: MessageStatus = Field(default=MessageStatus.COMPLETED, sa_column=sa.Column(sa.String, nullable=False))
     metadata_: dict[str, Any] | None = Field(
         default_factory=dict,
@@ -108,7 +123,7 @@ class Message(MessageBase, BigIntIDModel, table=True):
 
 
 class MessageRead(MessageBase):
-    model_config = ConfigDict(extra="ignore", populate_by_name=True, alias_generator=None)
+    model_config = ConfigDict(extra="ignore", populate_by_name=True, alias_generator=None, exclude_none=True)
 
     id: int
     conversation_id: int
@@ -128,12 +143,12 @@ class MessageRead(MessageBase):
 class MessageCreate(MessageBase):
     role: str = Field()
     content: str = Field()
-    context_sources: list[int] | None = None
+    context_sources: ContextSources | None = Field(default=None, exclude=True)
 
 
 class MessageUpdate(BaseSQLModel):
     role: str | None = None
     content: str | None = None
-    context_sources: list[int] | None = None
+    context_sources: ContextSources | None = Field(default=None, exclude=True)
     status: MessageStatus | None = None
     metadata_: dict[str, Any] | None = Field(default=None, alias="metadata")

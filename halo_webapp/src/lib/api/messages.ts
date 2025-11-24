@@ -29,7 +29,6 @@ export async function sendMessage(
         conversation_id: conversationId,
         role: payload.role ?? "user",
         content: payload.content,
-        context_sources: payload.context_sources,
         created_at: new Date().toISOString(),
         status: "completed",
         metadata: { mock: true },
