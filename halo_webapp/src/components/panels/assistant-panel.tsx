@@ -18,7 +18,7 @@ import {
 import { cn } from "@/lib/utils"
 import { createDocumentConversation, fetchDocumentConversations } from "@/lib/api/conversations"
 import { fetchMessages, sendMessage, subscribeToAssistantStream, type AssistantStreamEvent } from "@/lib/api/messages"
-import type { Conversation, Message } from "@/lib/api"
+import type { Conversation, Message, MessageContext } from "@/lib/api"
 
 type Props = {
   documentId: number
@@ -49,6 +49,7 @@ export function AssistantPanel({ documentId, selectionText }: Props) {
   const [isSending, setIsSending] = useState(false)
   const [streamStage, setStreamStage] = useState<string | null>(null)
   const composerRef = useRef<HTMLTextAreaElement | null>(null)
+  const messagesEndRef = useRef<HTMLDivElement | null>(null)
 
   // Context attachment state
   const [attachedSections, setAttachedSections] = useState<AttachedSection[]>([])
@@ -119,6 +120,13 @@ export function AssistantPanel({ documentId, selectionText }: Props) {
     }
   }, [selectedConversationId, loadMessages])
 
+  // Auto-scroll to bottom when messages change
+  useEffect(() => {
+    if (messages.length > 0) {
+      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
+    }
+  }, [messages])
+
   const handleCreateConversation = useCallback(
     async (title?: string) => {
       setIsCreating(true)
@@ -153,23 +161,27 @@ export function AssistantPanel({ documentId, selectionText }: Props) {
       }
 
       // Build context object
-      const context: Record<string, any> = {}
+      const context: MessageContext = {}
 
       // Add section IDs if attached
       if (attachedSections.length > 0) {
-        context.section_ids = attachedSections.map(s => s.id).filter((id): id is number => id !== undefined)
+        const ids = attachedSections.map(s => s.id).filter((id): id is number => id !== undefined)
+        if (ids.length > 0) {
+          context.section_ids = ids
+        }
       }
 
       // Add content IDs if attached
       if (attachedSources.length > 0) {
-        context.content_ids = attachedSources.map(s => s.id)
+        const ids = attachedSources.map(s => s.id)
+        if (ids.length > 0) {
+          context.content_ids = ids
+        }
       }
 
       // Add selection if present
       if (selectionText) {
-        context.selection = {
-          text: selectionText,
-        }
+        context.selection = { text: selectionText }
       }
 
       await sendMessage(activeConversationId, {
@@ -268,9 +280,16 @@ export function AssistantPanel({ documentId, selectionText }: Props) {
     composerRef.current?.focus()
   }
 
+  const handleKeyDown = (event: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (event.key === "Enter" && !event.shiftKey) {
+      event.preventDefault()
+      void handleSend()
+    }
+  }
+
   return (
     <div className="flex h-full flex-col">
-      <header className="flex items-center justify-between border-b px-4 py-3">
+      <header className="flex shrink-0 items-center justify-between border-b px-4 py-3">
         <div className="space-y-0.5">
           <h2 className="text-lg font-semibold leading-tight">Assistant</h2>
         </div>
@@ -289,9 +308,9 @@ export function AssistantPanel({ documentId, selectionText }: Props) {
         </div>
       </header>
 
-      <div className="flex min-h-0 flex-1 flex-col">
-        <ScrollArea className="flex-1 px-4">
-          <div className="flex flex-1 flex-col gap-3 py-4">
+      <div className="flex-1 min-h-0 overflow-hidden">
+        <ScrollArea className="h-full px-4">
+          <div className="flex flex-col gap-3 py-4">
             {messagesState === "loading" && (
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
                 <Loader2 className="h-4 w-4 animate-spin" />
@@ -313,18 +332,20 @@ export function AssistantPanel({ documentId, selectionText }: Props) {
             {messages.map((message) => (
               <MessageBubble key={message.id} message={message} />
             ))}
+            <div ref={messagesEndRef} />
           </div>
         </ScrollArea>
+      </div>
 
-        <footer
-          className={cn(
-            "border-t px-4 py-3 transition-colors",
-            isDragOver && "bg-sky-50 border-sky-300"
-          )}
-          onDragOver={handleDragOver}
-          onDragLeave={handleDragLeave}
-          onDrop={handleDrop}
-        >
+      <footer
+        className={cn(
+          "shrink-0 border-t px-4 py-3 transition-colors",
+          isDragOver && "bg-sky-50 border-sky-300"
+        )}
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
+        onDrop={handleDrop}
+      >
           <div className="space-y-2">
             {stageLabel && (
               <Badge variant="outline" className="text-[11px]">
@@ -401,6 +422,7 @@ export function AssistantPanel({ documentId, selectionText }: Props) {
                   ref={composerRef}
                   value={inputValue}
                   onChange={(event) => setInputValue(event.target.value)}
+                  onKeyDown={handleKeyDown}
                   placeholder={selectedConversationId ? "Ask a question or request a draft…" : "Start a conversation…"}
                   className="min-h-[64px] w-full resize-none rounded-lg border-0 bg-transparent px-2 py-1 text-sm focus-visible:outline-none"
                 />
@@ -418,7 +440,6 @@ export function AssistantPanel({ documentId, selectionText }: Props) {
             </div>
           </div>
         </footer>
-      </div>
     </div>
   )
 }
@@ -504,11 +525,11 @@ function MessageBubble({ message }: { message: Message }) {
     <div className={cn("flex flex-col gap-1", isAssistant ? "items-start" : "items-end")}>
       <div
         className={cn(
-          "max-w-[90%] rounded-2xl border px-3 py-2 text-sm shadow-sm",
+          "max-w-[90%] rounded-2xl border px-3 py-2 text-sm shadow-sm break-words",
           isAssistant ? "border-slate-200 bg-white text-foreground" : "border-sky-600 bg-sky-600 text-white",
         )}
       >
-        <p className="whitespace-pre-line">{message.content}</p>
+        <p className="whitespace-pre-line break-words">{message.content}</p>
         {message.status && message.status !== "completed" && (
           <p className="mt-1 text-[10px] uppercase tracking-wide opacity-70">{message.status}</p>
         )}

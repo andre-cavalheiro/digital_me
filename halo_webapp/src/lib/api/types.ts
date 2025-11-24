@@ -111,13 +111,26 @@ export interface Conversation {
 
 export type MessageRole = "user" | "assistant" | "system"
 
+export interface MessageContextSelection {
+  text: string
+  section_index?: number
+  start?: number
+  end?: number
+}
+
+export interface MessageContext {
+  section_ids?: number[]
+  content_ids?: number[]
+  selection?: MessageContextSelection | null
+}
+
 export interface Message {
   id: number
   conversation_id: number
   role: MessageRole
   content: string
   created_at?: string
-  context_sources?: number[] | Record<string, any>
+  context_sources?: MessageContext | null
   status?: "queued" | "running" | "completed" | "failed"
   metadata?: Record<string, any> | null
 }

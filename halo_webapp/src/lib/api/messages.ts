@@ -3,7 +3,7 @@ import { api } from "./client"
 import { withMock, mockMessages } from "./mocks"
 import { messageSchema } from "./schemas/message"
 import { paginatedResponseSchema } from "./schemas/pagination"
-import type { Message, MessageRole } from "./types"
+import type { Message, MessageContext, MessageRole } from "./types"
 
 export async function fetchMessages(conversationId: number): Promise<Message[]> {
   return withMock(
@@ -19,7 +19,7 @@ export async function fetchMessages(conversationId: number): Promise<Message[]> 
 
 export async function sendMessage(
   conversationId: number,
-  payload: { content: string; role?: MessageRole; context_sources?: number[] | Record<string, any> }
+  payload: { content: string; role?: MessageRole; context_sources?: MessageContext }
 ): Promise<Message> {
   return withMock(
     (() => {
