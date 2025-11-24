@@ -1,11 +1,12 @@
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Sequence
 
 import sqlalchemy as sa
+from sqlalchemy import select
 from .models import Conversation, Message
 from fury_api.lib.unit_of_work import UnitOfWork
 from fury_api.domain.users.models import User
 
-from fury_api.lib.service import SqlService
+from fury_api.lib.service import SqlService, with_uow
 
 if TYPE_CHECKING:
     pass
@@ -61,3 +62,26 @@ class MessagesService(SqlService[Message]):
         async with self.uow:
             result = await self.session.execute(stmt, params)  # type: ignore[arg-type]
             return result.first() is not None
+
+    @with_uow
+    async def get_recent_by_conversation(
+        self,
+        conversation_id: int,
+        *,
+        limit: int,
+        organization_id: int | None = None,
+        exclude_ids: Sequence[int] | None = None,
+    ) -> list[Message]:
+        query = (
+            select(self._model_cls)
+            .where(self._model_cls.conversation_id == conversation_id)
+            .order_by(self._model_cls.created_at.desc(), self._model_cls.id.desc())
+            .limit(limit)
+        )
+
+        if organization_id is not None:
+            query = query.where(self._model_cls.organization_id == organization_id)
+        if exclude_ids:
+            query = query.where(sa.not_(self._model_cls.id.in_(exclude_ids)))
+
+        return await self.repository.list(self.session, query=query)

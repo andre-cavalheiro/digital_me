@@ -1,6 +1,6 @@
 from .filters import FiltersAndSortsParser, get_models_filters_parser_factory
 from .services import ServiceType, SqlService, get_service, get_service_admin
-from .integrations import get_prefect_client, get_stripe_client
+from .integrations import get_prefect_client, get_stripe_client, get_ai_client
 from .unit_of_work import (
     UnitOfWork,
     get_uow,
@@ -35,4 +35,5 @@ __all__ = [
     # integrations
     "get_stripe_client",
     "get_prefect_client",
+    "get_ai_client",
 ]

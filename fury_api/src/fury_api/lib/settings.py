@@ -20,6 +20,8 @@ __all__ = [
     "SettingsConfig",
     "ExperimentalSettings",
     "CommunityArchiveSettings",
+    "AISettings",
+    "OpenAISettings",
     "load_settings",
     "config",
     "version",
@@ -288,6 +290,36 @@ class ExperimentalSettings(FuryBaseSettings):
     model_config = build_settings_config("FURY_API_EXPERIMENTAL_")
 
 
+class AISettings(FuryBaseSettings):
+    """Generic AI configuration."""
+
+    model_config = build_settings_config("FURY_AI_")
+
+    PROVIDER: Literal["openai"] = "openai"
+    DEFAULT_MODEL: str = "gpt-4o-mini"
+    TEMPERATURE: float = 0.2
+    MAX_OUTPUT_TOKENS: int | None = 512
+    HISTORY_MESSAGE_LIMIT: int = 6
+    MAX_SECTION_CHARS: int = 800
+    MAX_CONTENT_CHARS: int = 500
+    REQUEST_TIMEOUT: float = 40.0
+    SYSTEM_PROMPT: str = (
+        "You are Digital Me, a concise writing partner helping the user draft and refine document content. "
+        "Ground answers in the provided document sections, citations, and user selections. "
+        "If context is missing, state the gap and ask for a follow-up. "
+        "Use clear markdown with short paragraphs or bullet points when helpful."
+    )
+
+
+class OpenAISettings(FuryBaseSettings):
+    """OpenAI provider configuration."""
+
+    model_config = build_settings_config("FURY_AI_OPENAI_")
+
+    API_KEY: SecretStr | None = None
+    BASE_URL: str = "https://api.openai.com/v1"
+    MODEL: str | None = None  # Falls back to AISettings.DEFAULT_MODEL if not set
+
 @dataclass(frozen=True, kw_only=True, slots=True)
 class SettingsConfig:
     server: ServerSettings
@@ -302,6 +334,8 @@ class SettingsConfig:
     x_user: XUserSettings
     community_archive: CommunityArchiveSettings
     experimental: ExperimentalSettings
+    ai: AISettings
+    ai_openai: OpenAISettings
 
 
 _loaded_settings: SettingsConfig | None = None
@@ -327,6 +361,8 @@ def load_settings(force_reload: bool = False) -> SettingsConfig:
             x_user=XUserSettings(),
             community_archive=CommunityArchiveSettings(),
             experimental=ExperimentalSettings(),
+            ai=AISettings(),
+            ai_openai=OpenAISettings(),
         )
     except ValidationError as exc:
         print(f"Error loading settings: {exc}")

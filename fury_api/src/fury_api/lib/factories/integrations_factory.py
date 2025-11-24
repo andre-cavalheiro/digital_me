@@ -1,6 +1,14 @@
 from fury_api.lib.settings import config
 
-from fury_api.lib.integrations import StripeClient, PrefectClient, XAppClient, XUserClient, CommunityArchiveClient
+from fury_api.lib.integrations import (
+    BaseAIClient,
+    CommunityArchiveClient,
+    OpenAIClient,
+    PrefectClient,
+    StripeClient,
+    XAppClient,
+    XUserClient,
+)
 
 
 class IntegrationsFactory:
@@ -59,3 +67,20 @@ class IntegrationsFactory:
             else None
         )
         return CommunityArchiveClient(bearer_token=token)
+
+    @staticmethod
+    def get_ai_client() -> BaseAIClient:
+        """Get a chat-capable AI client based on configured provider."""
+        if config.ai.PROVIDER == "openai":
+            api_key = config.ai_openai.API_KEY.get_secret_value() if config.ai_openai.API_KEY else None
+            if not api_key:
+                raise ValueError("OpenAI API key is not configured")
+            model = config.ai_openai.MODEL or config.ai.DEFAULT_MODEL
+            return OpenAIClient(
+                api_key=api_key,
+                base_url=config.ai_openai.BASE_URL,
+                default_model=model,
+                timeout=config.ai.REQUEST_TIMEOUT,
+            )
+
+        raise ValueError(f"Unsupported AI provider: {config.ai.PROVIDER}")

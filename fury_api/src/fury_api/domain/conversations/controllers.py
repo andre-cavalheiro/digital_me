@@ -13,7 +13,10 @@ from fury_api.lib.dependencies import (
     get_service,
     get_uow_tenant,
     get_uow_tenant_ro,
+    get_ai_client,
 )
+from fury_api.lib.integrations import BaseAIClient
+from fury_api.lib.settings import config
 from . import exceptions
 from .models import (
     Conversation,
@@ -23,6 +26,7 @@ from .models import (
     Message,
     MessageCreate,
     MessageRead,
+    MessageUpdate,
     MessageStatus,
 )
 from fury_api.lib.security import get_current_user
@@ -30,7 +34,10 @@ from fury_api.lib.db.base import Identifier
 from fury_api.lib.pagination import CursorPage
 from .services import ConversationsService, MessagesService
 from fury_api.lib.model_filters import Filter, FilterOp, ModelFilterAndSortDefinition, get_default_ops_for_type
-from .streams import assistant_stream_broker, schedule_mock_progress
+from .streams import assistant_stream_broker
+from fury_api.domain.documents.services import DocumentContentsService
+from fury_api.domain.content.services import ContentsService
+from .ai import build_chat_messages
 
 conversation_router = APIRouter()
 
@@ -208,6 +215,16 @@ async def list_document_conversations(
 async def create_message(
     id_: int,
     message: MessageCreate,
+    conversation_service: Annotated[
+        ConversationsService,
+        Depends(
+            get_service(
+                ServiceType.CONVERSATIONS,
+                read_only=True,
+                uow=Depends(get_uow_tenant_ro),
+            )
+        ),
+    ],
     message_service: Annotated[
         MessagesService,
         Depends(
@@ -218,14 +235,40 @@ async def create_message(
             )
         ),
     ],
+    document_content_service: Annotated[
+        DocumentContentsService,
+        Depends(
+            get_service(
+                ServiceType.DOCUMENT_CONTENTS,
+                read_only=True,
+                uow=Depends(get_uow_tenant_ro),
+            )
+        ),
+    ],
+    content_service: Annotated[
+        ContentsService,
+        Depends(
+            get_service(
+                ServiceType.CONTENTS,
+                read_only=True,
+                uow=Depends(get_uow_tenant_ro),
+            )
+        ),
+    ],
+    ai_client: Annotated[BaseAIClient, Depends(get_ai_client)],
     current_user: Annotated[User, Depends(get_current_user)],
 ) -> Message:
+    conversation = await conversation_service.get_item(id_)
+    if not conversation or conversation.organization_id != current_user.organization_id:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Conversation not found")
+
+    context_sources = message.context_sources
     user_message = Message(
         **message.model_dump(exclude={"context_sources"}, exclude_none=True),
         organization_id=current_user.organization_id,
         conversation_id=id_,
         status=MessageStatus.COMPLETED,
-        metadata_={"mock": True, "generated": False},
+        metadata_={"generated": False, "context_sources": context_sources.model_dump() if context_sources else None},
     )
     created_user_message = await message_service.create_item(user_message)
 
@@ -236,17 +279,122 @@ async def create_message(
         message_content=message.content,
     )
 
+    sections = (
+        await document_content_service.get_by_ids(
+            context_sources.section_ids, document_id=conversation.document_id
+        )
+        if context_sources and context_sources.section_ids
+        else []
+    )
+    contents = (
+        await content_service.get_by_ids(
+            context_sources.content_ids, organization_id=current_user.organization_id
+        )
+        if context_sources and context_sources.content_ids
+        else []
+    )
+
+    history = await message_service.get_recent_by_conversation(
+        id_,
+        limit=config.ai.HISTORY_MESSAGE_LIMIT,
+        organization_id=current_user.organization_id,
+        exclude_ids=[created_user_message.id],
+    )
+    chat_messages, context_metadata = build_chat_messages(
+        base_prompt=config.ai.SYSTEM_PROMPT,
+        history=history,
+        user_message=created_user_message,
+        sections=sections,
+        contents=contents,
+        selection=context_sources.selection if context_sources else None,
+        max_section_chars=config.ai.MAX_SECTION_CHARS,
+        max_content_chars=config.ai.MAX_CONTENT_CHARS,
+    )
+
+    assistant_metadata = {
+        "generated": True,
+        "provider": config.ai.PROVIDER,
+        "model": config.ai_openai.MODEL or config.ai.DEFAULT_MODEL,
+        "context": context_metadata,
+    }
     assistant_message = Message(
         role="assistant",
-        content=f"(Mock assistant) Echo: {message.content}",
+        content="",
         conversation_id=id_,
         organization_id=current_user.organization_id,
-        status=MessageStatus.COMPLETED,
-        metadata_={"mock": True, "generated": True},
+        status=MessageStatus.RUNNING,
+        metadata_=assistant_metadata,
     )
     created_assistant_message = await message_service.create_item(assistant_message)
 
-    schedule_mock_progress(id_, created_assistant_message.id)
+    await assistant_stream_broker.publish(
+        id_,
+        {
+            "type": "status",
+            "stage": "queued",
+            "assistant_message_id": created_assistant_message.id,
+            "conversation_id": id_,
+        },
+    )
+    await assistant_stream_broker.publish(
+        id_,
+        {
+            "type": "status",
+            "stage": "generating",
+            "assistant_message_id": created_assistant_message.id,
+            "conversation_id": id_,
+        },
+    )
+
+    try:
+        ai_response = await ai_client.chat(
+            messages=chat_messages,
+            model=config.ai_openai.MODEL or config.ai.DEFAULT_MODEL,
+            temperature=config.ai.TEMPERATURE,
+            max_tokens=config.ai.MAX_OUTPUT_TOKENS,
+        )
+        updated_assistant = await message_service.update_item(
+            created_assistant_message.id,
+            MessageUpdate(
+                content=ai_response.message.content,
+                status=MessageStatus.COMPLETED,
+                metadata_={
+                    **assistant_metadata,
+                    "usage": ai_response.usage,
+                    "model": ai_response.model or assistant_metadata["model"],
+                },
+            ),
+        )
+    except Exception as exc:
+        await message_service.update_item(
+            created_assistant_message.id,
+            MessageUpdate(
+                status=MessageStatus.FAILED,
+                metadata_={**assistant_metadata, "error": str(exc)},
+            ),
+        )
+        await assistant_stream_broker.publish(
+            id_,
+            {
+                "type": "error",
+                "assistant_message_id": created_assistant_message.id,
+                "conversation_id": id_,
+                "message": "Assistant failed to generate response",
+            },
+        )
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY, detail="Failed to generate assistant response"
+        ) from exc
+
+    await assistant_stream_broker.publish(
+        id_,
+        {
+            "type": "completed",
+            "stage": "completed",
+            "assistant_message_id": updated_assistant.id,
+            "conversation_id": id_,
+        },
+    )
     return created_user_message
 
 

@@ -40,7 +40,7 @@ Usage in endpoints:
 
 from collections.abc import AsyncGenerator
 
-from fury_api.lib.integrations import StripeClient, PrefectClient, XAppClient, CommunityArchiveClient
+from fury_api.lib.integrations import BaseAIClient, StripeClient, PrefectClient, XAppClient, CommunityArchiveClient
 
 from fury_api.lib.factories import IntegrationsFactory
 
@@ -115,3 +115,11 @@ def get_community_archive_client() -> CommunityArchiveClient:
         CommunityArchiveClient: Ready-to-use client (currently stubbed).
     """
     return IntegrationsFactory.get_community_archive_client()
+
+
+async def get_ai_client() -> AsyncGenerator[BaseAIClient, None]:
+    """
+    Get an AI chat client with lifecycle management.
+    """
+    async with IntegrationsFactory.get_ai_client() as client:
+        yield client
