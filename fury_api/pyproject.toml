@@ -41,6 +41,7 @@ stripe = "^13.1.0"
 sse-starlette = "^1.6.5"
 xdk = "^0.2.2b0"
 openai = "^1.43.0"
+pgvector = "^0.2.5"
 
 [tool.poetry.group.dev.dependencies]
 coverage = "^7.3.2"

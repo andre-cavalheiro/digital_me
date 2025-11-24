@@ -319,6 +319,7 @@ class OpenAISettings(FuryBaseSettings):
     API_KEY: SecretStr | None = None
     BASE_URL: str = "https://api.openai.com/v1"
     MODEL: str | None = None  # Falls back to AISettings.DEFAULT_MODEL if not set
+    EMBEDDING_MODEL: str = "text-embedding-3-small"
 
 @dataclass(frozen=True, kw_only=True, slots=True)
 class SettingsConfig:

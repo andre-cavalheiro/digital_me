@@ -42,6 +42,7 @@ PLUGINS_AVAILABLE_SOURCES = f"{PLUGINS_ID}/available-sources"
 # Content
 CONTENTS = "/content"
 CONTENTS_ID = f"{CONTENTS}/{{id_}}"
+CONTENTS_BATCH = f"{CONTENTS}/batch"
 CONTENT_SEARCH = f"{CONTENTS}/search"
 
 # Source groups

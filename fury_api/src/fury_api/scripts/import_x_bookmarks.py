@@ -8,7 +8,8 @@ Usage:
 
 import argparse
 import asyncio
-from datetime import datetime
+from datetime import datetime, timezone
+from collections.abc import AsyncIterator
 from typing import Any, Iterable
 
 from fury_api.lib.factories import ServiceFactory, UnitOfWorkFactory
@@ -95,15 +96,16 @@ def _map_posts_to_content(posts: Iterable[Any], *, organization_id: int, source_
                 body=body,
                 excerpt=body,
                 published_at=post.created_at,
-                synced_at=datetime.utcnow(),
+                synced_at=datetime.now(timezone.utc),
                 platform_metadata=post.model_dump(),
             )
         )
     return contents
 
 
-async def fetch_bookmarks(client: XUserClient, *, user_id: str, max_results: int, fetch_all: bool) -> list[Any]:
-    bookmarks: list[Any] = []
+async def fetch_bookmark_pages(
+    client: XUserClient, *, user_id: str, max_results: int, fetch_all: bool
+) -> AsyncIterator[list[Any]]:
     pagination_token: str | None = None
 
     while True:
@@ -112,13 +114,11 @@ async def fetch_bookmarks(client: XUserClient, *, user_id: str, max_results: int
             pagination_token=pagination_token,
             max_results=max_results,
         )
-        bookmarks.extend(response.data or [])
+        yield response.data or []
         pagination_token = response.meta.next_token if response.meta else None
 
         if not fetch_all or not pagination_token:
             break
-
-    return bookmarks
 
 
 async def main() -> None:
@@ -170,6 +170,8 @@ async def main() -> None:
             plugin_id=plugin_id,
             user_id=user_id,
         )
+        # Access display_name while still in async context to avoid lazy-loading issues
+        source_display_name = source.display_name
 
         async with XUserClient(
             access_token=access_token,
@@ -180,16 +182,33 @@ async def main() -> None:
             on_tokens_refreshed=on_tokens_refreshed,
         ) as x_user_client:
             # Use the authenticated X user's ID, not the command-line user_id
-            posts = await fetch_bookmarks(
+            pages = fetch_bookmark_pages(
                 x_user_client,
                 user_id=x_user_id,
                 max_results=max_results,
                 fetch_all=fetch_all,
             )
 
-        contents = _map_posts_to_content(posts, organization_id=org_id, source_id=source.id)  # type: ignore[arg-type]
-        created_count = await contents_service.create_items(contents)
-        print(f"Imported {created_count} bookmark(s) into content for source '{source.display_name}'.")
+            total_created = 0
+            total_failed = 0
+            page_num = 0
+            async for posts in pages:
+                page_num += 1
+                contents = _map_posts_to_content(posts, organization_id=org_id, source_id=source.id)  # type: ignore[arg-type]
+                result = await contents_service.create_items_with_results(contents)
+                created_count = len(result.created)
+                failed_count = len(result.failed)
+                total_created += created_count
+                total_failed += failed_count
+                print(
+                    f"Page {page_num}: created={created_count}, failed={failed_count}"
+                    + (f" (errors: {[f.error for f in result.failed]})" if failed_count else "")
+                )
+
+            print(
+                f"Imported {total_created} bookmark(s) into content for source '{source_display_name}'. "
+                f"Failed: {total_failed}."
+            )
 
 
 if __name__ == "__main__":

@@ -48,3 +48,11 @@ class BaseAIClient:
         max_tokens: int | None = None,
     ) -> AIResponse:
         raise NotImplementedError
+
+    async def embed(self, text: str, *, model: str | None = None) -> list[float]:
+        """Return a single embedding for the given text."""
+        raise NotImplementedError
+
+    async def embed_batch(self, texts: list[str], *, model: str | None = None) -> list[list[float]]:
+        """Return embeddings for a batch of texts."""
+        raise NotImplementedError

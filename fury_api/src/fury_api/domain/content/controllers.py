@@ -9,13 +9,20 @@ from fury_api.lib.dependencies import (
     ServiceType,
     get_models_filters_parser_factory,
     get_service,
+    get_ai_client,
     get_uow_tenant,
     get_uow_tenant_ro,
 )
-from fury_api.lib.dependencies.integrations import get_x_app_client
-from fury_api.lib.integrations import XAppClient
+from fury_api.lib.integrations.base_ai import BaseAIClient
 from . import exceptions
-from .models import Content, ContentCreate, ContentRead, ContentSearchRequest
+from .models import (
+    Content,
+    ContentBulkCreate,
+    ContentBulkResult,
+    ContentCreate,
+    ContentRead,
+    ContentSearchRequest,
+)
 from fury_api.lib.security import get_current_user
 from fury_api.lib.db.base import Identifier
 from fury_api.lib.pagination import CursorPage
@@ -97,6 +104,30 @@ async def create_content_item(
     return await content_service.create_item(converted_content)
 
 
+@content_router.post(paths.CONTENTS_BATCH, response_model=ContentBulkResult, status_code=status.HTTP_201_CREATED)
+async def create_content_items(
+    content_data: ContentBulkCreate,
+    content_service: Annotated[
+        ContentsService,
+        Depends(
+            get_service(
+                ServiceType.CONTENTS,
+                read_only=False,
+                uow=Depends(get_uow_tenant),
+            )
+        ),
+    ],
+    current_user: Annotated[User, Depends(get_current_user)],
+) -> ContentBulkResult:
+    items: list[Content] = []
+    for item in content_data.items:
+        payload = item.model_dump(by_alias=True, exclude_unset=True, exclude_none=True)
+        payload["organization_id"] = current_user.organization_id
+        items.append(Content.model_validate(payload))
+
+    return await content_service.create_items_with_results(items)
+
+
 @content_router.delete(paths.CONTENTS_ID, status_code=status.HTTP_204_NO_CONTENT)
 async def delete_content_item(
     id_: int,
@@ -128,12 +159,6 @@ async def search_content(
             )
         ),
     ],
-    x_client: Annotated[XAppClient, Depends(get_x_app_client)],
+    ai_client: Annotated[BaseAIClient, Depends(get_ai_client)],
 ) -> list[ContentRead]:
-    # Simple search: return all content (TODO: Add actual search logic with filters/query)
-    # get_items() returns an async generator, so we need to consume it
-    results = []
-    async for item in content_service.get_items():
-        results.append(item)
-    return results
-    # return await content_service.search_external_sources(search, x_client=x_client)
+    return await content_service.semantic_search(search, ai_client=ai_client)

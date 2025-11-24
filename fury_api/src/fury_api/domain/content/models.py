@@ -6,9 +6,11 @@ from typing import Any, Optional
 
 from pydantic import ConfigDict
 from sqlmodel import Field
+from pgvector.sqlalchemy import Vector
 from fury_api.lib.db.base import BaseSQLModel, BigIntIDModel
 
 __all__ = ["Content", "ContentCreate", "ContentRead", "ContentUpdate", "ContentSearchRequest"]
+__all__ += ["ContentBulkCreate", "ContentBulkResult", "FailedContent"]
 
 
 class ContentBase(BaseSQLModel):
@@ -20,6 +22,7 @@ class ContentBase(BaseSQLModel):
     published_at: datetime | None = None
     synced_at: datetime | None = None
     platform_metadata: dict[str, Any] | None = None
+    embedding: list[float] | None = None
 
 
 class Content(ContentBase, BigIntIDModel, table=True):
@@ -41,6 +44,10 @@ class Content(ContentBase, BigIntIDModel, table=True):
     published_at: datetime | None = Field(default=None, nullable=True)
     synced_at: datetime | None = Field(default_factory=datetime.utcnow, nullable=True)
     platform_metadata: dict[str, Any] | None = Field(default=None, sa_type=sa.JSON, nullable=True)
+    embedding: list[float] | None = Field(
+        default=None,
+        sa_column=sa.Column(Vector(1536), nullable=True),
+    )
     created_at: datetime = Field(default_factory=datetime.utcnow, nullable=False)
     updated_at: datetime = Field(default_factory=datetime.utcnow, nullable=False)
 
@@ -80,3 +87,18 @@ class ContentUpdate(BaseSQLModel):
 class ContentSearchRequest(BaseSQLModel):
     query: str
     limit: int | None = 20
+
+
+class ContentBulkCreate(BaseSQLModel):
+    items: list[ContentCreate]
+
+
+class FailedContent(BaseSQLModel):
+    error: str
+    external_id: str | None = None
+    title: str | None = None
+
+
+class ContentBulkResult(BaseSQLModel):
+    created: list[ContentRead]
+    failed: list[FailedContent]

@@ -1,12 +1,16 @@
 from typing import TYPE_CHECKING, Any
-from collections.abc import Sequence
+from collections.abc import Iterable, Sequence
 
+import sqlalchemy as sa
 from sqlalchemy import select
-from .models import Content, ContentSearchRequest
+from pgvector.sqlalchemy import Vector
+from .models import Content, ContentBulkResult, ContentSearchRequest, FailedContent
 from fury_api.lib.unit_of_work import UnitOfWork
 from fury_api.domain.users.models import User
 
 from fury_api.lib.service import SqlService, with_uow
+from fury_api.lib.integrations.base_ai import BaseAIClient
+from fury_api.lib.factories.integrations_factory import IntegrationsFactory
 
 if TYPE_CHECKING:
     from fury_api.lib.integrations import XAppClient
@@ -53,3 +57,99 @@ class ContentsService(SqlService[Content]):
             query = query.where(self._model_cls.organization_id == organization_id)
         query = query.order_by(self._model_cls.id)
         return await self.repository.list(self.session, query=query)
+
+    @with_uow
+    async def semantic_search(
+        self,
+        search: ContentSearchRequest,
+        *,
+        ai_client: BaseAIClient | None = None,
+    ) -> list[Content]:
+        limit = search.limit or 20
+
+        async def _run(client: BaseAIClient) -> list[Content]:
+            query_vector = await client.embed(search.query)
+            vector_literal = sa.literal(query_vector, type_=Vector(len(query_vector)))
+
+            q = select(self._model_cls).where(self._model_cls.embedding.is_not(None))
+            if self.organization_id is not None:
+                q = q.where(self._model_cls.organization_id == self.organization_id)
+
+            q = q.order_by(self._model_cls.embedding.op("<->")(vector_literal)).limit(limit)
+
+            result = await self.session.exec(q)
+            return result.scalars().all()
+
+        if ai_client is not None:
+            return await _run(ai_client)
+
+        async with IntegrationsFactory.get_ai_client() as client:
+            return await _run(client)
+
+    async def _embed_contents(
+        self,
+        contents: Iterable[Content],
+        *,
+        ai_client: BaseAIClient | None = None,
+    ) -> None:
+        targets = [content for content in contents if content.embedding is None and content.body]
+        if not targets:
+            return
+
+        async def apply(client: BaseAIClient) -> None:
+            embeddings = await client.embed_batch([c.body for c in targets])
+            for content, embedding in zip(targets, embeddings, strict=False):
+                content.embedding = embedding
+
+        if ai_client is not None:
+            await apply(ai_client)
+            return
+
+        async with IntegrationsFactory.get_ai_client() as client:
+            await apply(client)
+
+    @with_uow
+    async def create_item(self, item: Content, *, ai_client: BaseAIClient | None = None) -> Content:
+        await self._embed_contents([item], ai_client=ai_client)
+        return await self.repository.add(self.session, item)
+
+    async def create_items(
+        self,
+        items: list[Content],
+        *,
+        ai_client: BaseAIClient | None = None,
+    ) -> int:
+        result = await self.create_items_with_results(items, ai_client=ai_client)
+        return len(result.created)
+
+    @with_uow
+    async def create_items_with_results(
+        self,
+        items: list[Content],
+        *,
+        ai_client: BaseAIClient | None = None,
+    ) -> ContentBulkResult:
+        await self._embed_contents(items, ai_client=ai_client)
+
+        created: list[Content] = []
+        failed: list[FailedContent] = []
+        for item in items:
+            try:
+                created_item = await self.repository.add(self.session, item)
+                created.append(created_item)
+            except Exception as e:  # pragma: no cover - defensive
+                if self.session is not None:
+                    await self.session.rollback()
+                failed.append(
+                    FailedContent(
+                        error=str(e),
+                        external_id=getattr(item, "external_id", None),
+                        title=getattr(item, "title", None),
+                    )
+                )
+                continue
+
+        return ContentBulkResult(
+            created=created,
+            failed=failed,
+        )

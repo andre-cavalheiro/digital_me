@@ -30,7 +30,7 @@ services:
       FURY_API_DEVEX_ENABLED: "true"
 
   postgres:
-    image: postgres:15
+    image: pgvector/pgvector:pg15
     container_name: fury-postgres
     restart: "${DOCKER_RESTART_POLICY:-unless-stopped}"
     ports:
