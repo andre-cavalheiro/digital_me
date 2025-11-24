@@ -15,7 +15,8 @@ __all__ = [
     "LoggingSettings",
     "DatabaseSettings",
     "OpenAPISettings",
-    "XSettings",
+    "XAppSettings",
+    "XUserSettings",
     "SettingsConfig",
     "ExperimentalSettings",
     "CommunityArchiveSettings",
@@ -254,12 +255,23 @@ class FirebaseSettings(FuryBaseSettings):
     WEB_API_KEY: SecretStr
 
 
-class XSettings(FuryBaseSettings):
-    """X integration settings."""
+class XAppSettings(FuryBaseSettings):
+    """X App integration settings."""
 
-    model_config = build_settings_config("FURY_X_")
+    model_config = build_settings_config("FURY_X_APP_")
 
     BEARER_TOKEN: SecretStr | None = None
+
+
+class XUserSettings(FuryBaseSettings):
+    """X User HTTP integration settings."""
+
+    model_config = build_settings_config("FURY_X_USER_")
+
+    API_URL: str = "https://api.x.com/2"
+    OAUTH_TOKEN_URL: str = "https://api.x.com/2/oauth2/token"
+    OAUTH_CLIENT_ID: str | None = None
+    OAUTH_CLIENT_SECRET: SecretStr | None = None
 
 
 class CommunityArchiveSettings(FuryBaseSettings):
@@ -286,7 +298,8 @@ class SettingsConfig:
     database: DatabaseSettings
     openapi: OpenAPISettings
     firebase: FirebaseSettings
-    x: XSettings
+    x_app: XAppSettings
+    x_user: XUserSettings
     community_archive: CommunityArchiveSettings
     experimental: ExperimentalSettings
 
@@ -310,7 +323,8 @@ def load_settings(force_reload: bool = False) -> SettingsConfig:
             database=DatabaseSettings(),
             openapi=OpenAPISettings(),
             firebase=FirebaseSettings(),
-            x=XSettings(),
+            x_app=XAppSettings(),
+            x_user=XUserSettings(),
             community_archive=CommunityArchiveSettings(),
             experimental=ExperimentalSettings(),
         )

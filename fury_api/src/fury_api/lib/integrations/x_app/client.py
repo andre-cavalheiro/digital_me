@@ -5,12 +5,12 @@ Client for interacting with the X API via the xdk SDK.
 from xdk import Client
 
 from fury_api.lib.settings import config
-from fury_api.lib.integrations.x.models import SearchAllResult
+from fury_api.lib.integrations.x_app.models import SearchAllResult
 
-__all__ = ["XClient", "get_x_client"]
+__all__ = ["XAppClient", "get_x_app_client"]
 
 
-class XClient:
+class XAppClient:
     """
     Client for interacting with the X API via the xdk SDK.
     """
@@ -62,10 +62,12 @@ class XClient:
     ]
 
     def __init__(self, bearer_token: str | None = None, client: Client | None = None) -> None:
-        token_from_settings = config.x.BEARER_TOKEN.get_secret_value() if config.x.BEARER_TOKEN is not None else None
+        token_from_settings = (
+            config.x_app.BEARER_TOKEN.get_secret_value() if config.x_app.BEARER_TOKEN is not None else None
+        )
         token = bearer_token or token_from_settings
         if not token:
-            raise ValueError("X bearer token is not configured")
+            raise ValueError("X App bearer token is not configured")
         self._client = client or Client(bearer_token=token)
 
     def search_all(
@@ -117,6 +119,6 @@ class XClient:
         return result
 
 
-def get_x_client(bearer_token: str | None = None, client: Client | None = None) -> XClient:
+def get_x_app_client(bearer_token: str | None = None, client: Client | None = None) -> XAppClient:
     """Create a configured X client."""
-    return XClient(bearer_token=bearer_token, client=client)
+    return XAppClient(bearer_token=bearer_token, client=client)

@@ -7,7 +7,7 @@ from fury_api.domain.users.models import User
 from fury_api.lib.service import SqlService
 
 if TYPE_CHECKING:
-    from fury_api.lib.integrations import XClient
+    from fury_api.lib.integrations import XAppClient
 
 __all__ = ["ContentsService"]
 
@@ -26,10 +26,10 @@ class ContentsService(SqlService[Content]):
         self,
         search: ContentSearchRequest,
         *,
-        x_client: "XClient",
+        x_client: "XAppClient",
     ) -> list[dict[str, Any]]:
         """
-        Perform a basic external search using the X integration.
+        Perform a basic external search using the X App integration.
 
         Args:
             search: Search payload containing query and optional limit.

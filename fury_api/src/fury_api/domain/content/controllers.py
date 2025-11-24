@@ -12,8 +12,8 @@ from fury_api.lib.dependencies import (
     get_uow_tenant,
     get_uow_tenant_ro,
 )
-from fury_api.lib.dependencies.integrations import get_x_client
-from fury_api.lib.integrations import XClient
+from fury_api.lib.dependencies.integrations import get_x_app_client
+from fury_api.lib.integrations import XAppClient
 from . import exceptions
 from .models import Content, ContentCreate, ContentRead, ContentSearchRequest
 from fury_api.lib.security import get_current_user
@@ -128,7 +128,7 @@ async def search_content(
             )
         ),
     ],
-    x_client: Annotated[XClient, Depends(get_x_client)],
+    x_client: Annotated[XAppClient, Depends(get_x_app_client)],
 ) -> list[dict[str, Any]]:
     """
     # Simple search: return all content (TODO: Add actual search logic with filters/query)

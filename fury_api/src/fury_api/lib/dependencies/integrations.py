@@ -40,7 +40,7 @@ Usage in endpoints:
 
 from collections.abc import AsyncGenerator
 
-from fury_api.lib.integrations import StripeClient, PrefectClient, XClient, CommunityArchiveClient
+from fury_api.lib.integrations import StripeClient, PrefectClient, XAppClient, CommunityArchiveClient
 
 from fury_api.lib.factories import IntegrationsFactory
 
@@ -94,17 +94,17 @@ async def get_prefect_client() -> AsyncGenerator[PrefectClient, None]:
         yield client
 
 
-def get_x_client() -> XClient:
+def get_x_app_client() -> XAppClient:
     """
-    Get an X API client.
+    Get an X App API client.
 
     The xdk SDK manages HTTP connections internally, so no async lifecycle
     management is needed. The client is configured from settings.
 
     Returns:
-        XClient: Ready-to-use X client
+        XAppClient: Ready-to-use X App client
     """
-    return IntegrationsFactory.get_x_client()
+    return IntegrationsFactory.get_x_app_client()
 
 
 def get_community_archive_client() -> CommunityArchiveClient:

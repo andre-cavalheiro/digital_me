@@ -1,4 +1,4 @@
-from .client import XClient, get_x_client
+from .client import XAppClient, get_x_app_client
 from .models import (
     UserPublicMetrics,
     SearchUser,
@@ -10,11 +10,11 @@ from .models import (
     SearchMeta,
     SearchAllResult,
 )
-from .exceptions import XIntegrationError
+from .exceptions import XAppIntegrationError
 
 __all__ = [
-    "XClient",
-    "get_x_client",
+    "XAppClient",
+    "get_x_app_client",
     "UserPublicMetrics",
     "SearchUser",
     "SearchMedia",
@@ -24,5 +24,5 @@ __all__ = [
     "SearchIncludes",
     "SearchMeta",
     "SearchAllResult",
-    "XIntegrationError",
+    "XAppIntegrationError",
 ]
