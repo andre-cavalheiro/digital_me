@@ -32,6 +32,7 @@ export async function saveDocumentContent(documentId: number, sections: Document
           document_id: documentId,
           order_index: section.order_index ?? idx,
           updated_at: new Date().toISOString(),
+          embedded_content_id: section.embedded_content_id,
         })),
       )
       mockDocumentContents[documentId] = normalized
@@ -44,6 +45,7 @@ export async function saveDocumentContent(documentId: number, sections: Document
           order_index: section.order_index ?? idx,
           title: section.title,
           word_count: section.word_count,
+          embedded_content_id: section.embedded_content_id,
         })),
       }
       const response = await api.put<DocumentContent>(`/documents/${documentId}/content`, payload)

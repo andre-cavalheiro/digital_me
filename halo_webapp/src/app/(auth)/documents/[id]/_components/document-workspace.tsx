@@ -60,7 +60,14 @@ export function DocumentWorkspace({ documentId }: Props) {
           setCitations(docCitations)
           setStatus("idle")
           setDirty(false)
-          void hydrateContentCache(docCitations.map((c) => c.content_id), setContentCache)
+
+          // Hydrate content cache for both citations and embedded content
+          const citationContentIds = docCitations.map((c) => c.content_id)
+          const embeddedContentIds = docContent
+            .map((section) => section.embedded_content_id)
+            .filter((id): id is number => id !== null && id !== undefined)
+          const allContentIds = [...new Set([...citationContentIds, ...embeddedContentIds])]
+          void hydrateContentCache(allContentIds, setContentCache)
         }
       } catch (error) {
         console.error("Failed to load document", error)
@@ -150,6 +157,44 @@ export function DocumentWorkspace({ documentId }: Props) {
       console.error("Failed to persist citation", error)
       toast.error("Could not save citation. The marker will stay locally.")
     })
+  }
+
+  const handleEmbeddedContentDrop = async (afterSectionIndex: number, contentId: number) => {
+    const insertIndex = afterSectionIndex + 1
+    const newSection: DocumentSection = {
+      document_id: documentId,
+      content: "",
+      order_index: insertIndex,
+      embedded_content_id: contentId,
+    }
+
+    // Update sections state
+    let updatedSections: DocumentSection[] = []
+    setSections((previous) => {
+      const next = [...previous]
+      next.splice(insertIndex, 0, newSection)
+      updatedSections = next
+      return next
+    })
+
+    // Hydrate the content cache
+    void hydrateContentCache([contentId], setContentCache)
+
+    // Immediately save the updated sections
+    setSaveState("saving")
+    try {
+      const saved = await saveDocumentContent(documentId, sectionsWithOrder(documentId, updatedSections))
+      suppressDirtyRef.current = true
+      setSections(saved)
+      setDirty(false)
+      const updatedAt = latestUpdatedAt(saved) ?? new Date().toISOString()
+      setLastSavedAt(updatedAt)
+      setSaveState("idle")
+    } catch (error) {
+      console.error("Failed to save embedded content", error)
+      setSaveState("error")
+      toast.error("Could not save embedded content.")
+    }
   }
 
   const handleTitleSave = async () => {
@@ -276,6 +321,8 @@ export function DocumentWorkspace({ documentId }: Props) {
             onSelectionChange={handleSelectionChange}
             onBlurSave={persistSections}
             onDropCitation={handleCitationDrop}
+            onDropEmbeddedContent={handleEmbeddedContentDrop}
+            contentCache={contentCache}
           />
         </div>
       }
@@ -303,6 +350,7 @@ function sectionsFromText(contents: string[], documentId: number, previous: Docu
       title: existing?.title ?? null,
       word_count: countWords(content),
       updated_at: existing?.updated_at,
+      embedded_content_id: existing?.embedded_content_id ?? null,
     }
   })
 }

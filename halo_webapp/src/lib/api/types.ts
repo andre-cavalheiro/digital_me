@@ -36,11 +36,41 @@ export interface DocumentSection {
   title?: string | null
   word_count?: number
   updated_at?: string
+  embedded_content_id?: number | null
 }
 
 export type DocumentContent = DocumentSection[]
 
 // Content sources / suggestions
+export interface TwitterAuthor {
+  id: string
+  username: string
+  name: string
+  profile_image_url: string
+  verified: boolean
+  verified_type?: string
+  description?: string
+}
+
+export interface TwitterPlatformMetadata {
+  id: string
+  text: string
+  author: TwitterAuthor
+  public_metrics?: {
+    like_count: number
+    retweet_count: number
+    reply_count: number
+    quote_count: number
+    impression_count: number
+    bookmark_count: number
+  }
+  tweet_url?: string
+  is_retweet?: boolean
+  is_quote?: boolean
+  is_reply?: boolean
+  [key: string]: any
+}
+
 export interface ContentItem {
   id: number
   title: string
@@ -49,6 +79,8 @@ export interface ContentItem {
   author?: string
   published_at?: string
   source_url?: string
+  body?: string
+  platform_metadata?: TwitterPlatformMetadata | Record<string, any>
 }
 
 export interface ContentSearchParams {
