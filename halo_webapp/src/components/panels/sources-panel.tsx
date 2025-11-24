@@ -137,6 +137,7 @@ function TweetCard({ item, metadata }: { item: ContentItem; metadata: TwitterPla
       className="group cursor-grab rounded-lg border border-slate-200 bg-white p-3 shadow-sm transition hover:-translate-y-0.5 hover:border-sky-200 hover:shadow-md active:cursor-grabbing"
       onDragStart={(event) => {
         event.dataTransfer?.setData("application/x-content-id", String(item.id))
+        event.dataTransfer?.setData("application/x-content-title", `@${author.username}`)
         event.dataTransfer?.setData("text/plain", tweetText)
         event.dataTransfer?.setDragImage(createDragImage(`@${author.username}`), 0, 0)
       }}
@@ -204,6 +205,7 @@ function SourceCard({ item }: { item: ContentItem }) {
       className="group rounded-lg border border-slate-200 bg-white/80 p-3 shadow-sm transition hover:-translate-y-0.5 hover:border-sky-200 hover:shadow-md"
       onDragStart={(event) => {
         event.dataTransfer?.setData("application/x-content-id", String(item.id))
+        event.dataTransfer?.setData("application/x-content-title", item.title)
         event.dataTransfer?.setData("text/plain", item.title)
         event.dataTransfer?.setDragImage(createDragImage(item.title), 0, 0)
       }}

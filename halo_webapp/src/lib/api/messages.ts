@@ -17,7 +17,10 @@ export async function fetchMessages(conversationId: number): Promise<Message[]> 
   )
 }
 
-export async function sendMessage(conversationId: number, payload: { content: string; role?: MessageRole; context_sources?: number[] }): Promise<Message> {
+export async function sendMessage(
+  conversationId: number,
+  payload: { content: string; role?: MessageRole; context_sources?: number[] | Record<string, any> }
+): Promise<Message> {
   return withMock(
     (() => {
       const nextId = Math.max(...mockMessages.map((m) => m.id)) + 1

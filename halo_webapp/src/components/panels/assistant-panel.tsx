@@ -1,7 +1,7 @@
 "use client"
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
-import { ArrowUp, Loader2, MessageSquarePlus, Plus, RotateCw } from "lucide-react"
+import { ArrowUp, Loader2, MessageSquarePlus, Plus, RotateCw, X } from "lucide-react"
 import { toast } from "sonner"
 
 import { Button } from "@/components/ui/button"
@@ -27,6 +27,17 @@ type Props = {
 
 type FetchState = "idle" | "loading" | "error"
 
+type AttachedSection = {
+  index: number
+  content: string
+  id?: number
+}
+
+type AttachedSource = {
+  id: number
+  title: string
+}
+
 export function AssistantPanel({ documentId, selectionText }: Props) {
   const [conversations, setConversations] = useState<Conversation[]>([])
   const [conversationState, setConversationState] = useState<FetchState>("idle")
@@ -38,6 +49,11 @@ export function AssistantPanel({ documentId, selectionText }: Props) {
   const [isSending, setIsSending] = useState(false)
   const [streamStage, setStreamStage] = useState<string | null>(null)
   const composerRef = useRef<HTMLTextAreaElement | null>(null)
+
+  // Context attachment state
+  const [attachedSections, setAttachedSections] = useState<AttachedSection[]>([])
+  const [attachedSources, setAttachedSources] = useState<AttachedSource[]>([])
+  const [isDragOver, setIsDragOver] = useState(false)
 
   const loadConversations = useCallback(async () => {
     setConversationState("loading")
@@ -135,8 +151,36 @@ export function AssistantPanel({ documentId, selectionText }: Props) {
         if (!created) return
         activeConversationId = created.id
       }
-      await sendMessage(activeConversationId, { content: trimmed, role: "user" })
+
+      // Build context object
+      const context: Record<string, any> = {}
+
+      // Add section IDs if attached
+      if (attachedSections.length > 0) {
+        context.section_ids = attachedSections.map(s => s.id).filter((id): id is number => id !== undefined)
+      }
+
+      // Add content IDs if attached
+      if (attachedSources.length > 0) {
+        context.content_ids = attachedSources.map(s => s.id)
+      }
+
+      // Add selection if present
+      if (selectionText) {
+        context.selection = {
+          text: selectionText,
+        }
+      }
+
+      await sendMessage(activeConversationId, {
+        content: trimmed,
+        role: "user",
+        context_sources: Object.keys(context).length > 0 ? context : undefined,
+      })
+
       setInputValue("")
+      setAttachedSections([])
+      setAttachedSources([])
       composerRef.current?.focus()
       await loadMessages(activeConversationId)
     } catch (error) {
@@ -145,6 +189,64 @@ export function AssistantPanel({ documentId, selectionText }: Props) {
     } finally {
       setIsSending(false)
     }
+  }
+
+  // Drag and drop handlers for context attachment
+  const handleDragOver = (event: React.DragEvent) => {
+    event.preventDefault()
+    setIsDragOver(true)
+  }
+
+  const handleDragLeave = (event: React.DragEvent) => {
+    event.preventDefault()
+    setIsDragOver(false)
+  }
+
+  const handleDrop = (event: React.DragEvent) => {
+    event.preventDefault()
+    setIsDragOver(false)
+
+    try {
+      // Check for section drag
+      const sectionData = event.dataTransfer.getData("application/x-section")
+      if (sectionData) {
+        const section: AttachedSection = JSON.parse(sectionData)
+        // Avoid duplicates
+        if (!attachedSections.some(s => s.index === section.index)) {
+          setAttachedSections(prev => [...prev, section])
+          toast.success("Section attached to context")
+        }
+        return
+      }
+
+      // Check for content/source drag
+      const contentId = event.dataTransfer.getData("application/x-content-id")
+      if (contentId) {
+        const id = Number.parseInt(contentId, 10)
+        if (!Number.isNaN(id)) {
+          // Get title from data transfer if available
+          const title = event.dataTransfer.getData("application/x-content-title") || `Source ${id}`
+
+          // Avoid duplicates
+          if (!attachedSources.some(s => s.id === id)) {
+            setAttachedSources(prev => [...prev, { id, title }])
+            toast.success("Source attached to context")
+          }
+        }
+        return
+      }
+    } catch (error) {
+      console.error("Error handling drop:", error)
+      toast.error("Could not attach context")
+    }
+  }
+
+  const removeSection = (index: number) => {
+    setAttachedSections(prev => prev.filter(s => s.index !== index))
+  }
+
+  const removeSource = (id: number) => {
+    setAttachedSources(prev => prev.filter(s => s.id !== id))
   }
 
   const activeConversation = useMemo(
@@ -214,7 +316,15 @@ export function AssistantPanel({ documentId, selectionText }: Props) {
           </div>
         </ScrollArea>
 
-        <footer className="border-t px-4 py-3">
+        <footer
+          className={cn(
+            "border-t px-4 py-3 transition-colors",
+            isDragOver && "bg-sky-50 border-sky-300"
+          )}
+          onDragOver={handleDragOver}
+          onDragLeave={handleDragLeave}
+          onDrop={handleDrop}
+        >
           <div className="space-y-2">
             {stageLabel && (
               <Badge variant="outline" className="text-[11px]">
@@ -232,6 +342,59 @@ export function AssistantPanel({ documentId, selectionText }: Props) {
                 Use recent selection as context
               </button>
             )}
+
+            {/* Context pills */}
+            {(attachedSections.length > 0 || attachedSources.length > 0) && (
+              <div className="flex flex-wrap gap-1.5 rounded-lg border border-dashed bg-muted/30 p-2">
+                {attachedSections.map((section) => {
+                  const previewText = section.content.trim() || `Section ${section.index + 1}`
+                  const truncated = previewText.length > 40 ? previewText.slice(0, 40) + "..." : previewText
+                  return (
+                    <Badge
+                      key={section.index}
+                      variant="secondary"
+                      className="flex items-center gap-1 pr-1 text-xs"
+                    >
+                      <span className="max-w-[160px] truncate" title={section.content}>
+                        {truncated}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => removeSection(section.index)}
+                        className="ml-0.5 rounded-sm hover:bg-muted-foreground/20"
+                        aria-label="Remove section"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </Badge>
+                  )
+                })}
+                {attachedSources.map((source) => (
+                  <Badge
+                    key={source.id}
+                    variant="secondary"
+                    className="flex items-center gap-1 pr-1 text-xs"
+                  >
+                    <span className="max-w-[120px] truncate">{source.title}</span>
+                    <button
+                      type="button"
+                      onClick={() => removeSource(source.id)}
+                      className="ml-0.5 rounded-sm hover:bg-muted-foreground/20"
+                      aria-label="Remove source"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </Badge>
+                ))}
+              </div>
+            )}
+
+            {isDragOver && (
+              <div className="rounded-lg border-2 border-dashed border-sky-400 bg-sky-50/50 px-4 py-3 text-center">
+                <p className="text-sm font-medium text-sky-700">Drop to attach as context</p>
+              </div>
+            )}
+
             <div className="flex flex-col gap-2">
               <div className="flex items-end gap-2 rounded-xl border bg-white px-2 py-2 shadow-sm focus-within:ring-2 focus-within:ring-sky-200">
                 <textarea

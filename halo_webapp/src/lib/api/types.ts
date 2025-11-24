@@ -117,7 +117,7 @@ export interface Message {
   role: MessageRole
   content: string
   created_at?: string
-  context_sources?: number[]
+  context_sources?: number[] | Record<string, any>
   status?: "queued" | "running" | "completed" | "failed"
   metadata?: Record<string, any> | null
 }

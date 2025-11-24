@@ -193,12 +193,24 @@ export function DocumentEditor({ sections, onSectionsChange, onSelectionChange, 
       // Safety check: ensure valid section index
       if (sectionIndex < 0 || sectionIndex >= sections.length) return
 
+      const section = sections[sectionIndex]
+      if (!section) return
+
       setDraggedSectionIndex(sectionIndex)
       event.dataTransfer.effectAllowed = "move"
 
-      // Set a transparent drag image
-      const dragImage = document.createElement("div")
-      dragImage.style.opacity = "0"
+      // Set section data for assistant panel context attachment
+      const sectionData = {
+        index: sectionIndex,
+        content: section.content,
+        id: section.id,
+      }
+      event.dataTransfer.setData("application/x-section", JSON.stringify(sectionData))
+
+      // Create drag preview with section content
+      const previewText = section.content.trim() || `Section ${sectionIndex + 1}`
+      const truncated = previewText.length > 40 ? previewText.slice(0, 40) + "..." : previewText
+      const dragImage = createSectionDragImage(truncated)
       document.body.appendChild(dragImage)
       event.dataTransfer.setDragImage(dragImage, 0, 0)
       setTimeout(() => {
@@ -615,6 +627,26 @@ function autoSize(textarea: HTMLTextAreaElement) {
   textarea.style.height = `${textarea.scrollHeight}px`
 }
 
+function createSectionDragImage(text: string): HTMLElement {
+  const el = document.createElement("div")
+  el.textContent = text
+  el.style.position = "fixed"
+  el.style.top = "-1000px"
+  el.style.left = "-1000px"
+  el.style.padding = "8px 12px"
+  el.style.background = "rgb(14 165 233)"
+  el.style.color = "white"
+  el.style.borderRadius = "6px"
+  el.style.fontSize = "13px"
+  el.style.fontWeight = "500"
+  el.style.boxShadow = "0 2px 8px rgba(0,0,0,0.15)"
+  el.style.maxWidth = "240px"
+  el.style.whiteSpace = "nowrap"
+  el.style.overflow = "hidden"
+  el.style.textOverflow = "ellipsis"
+  return el
+}
+
 function SectionDragHandle({
   visible,
   onDragStart,
@@ -682,7 +714,7 @@ function SectionControlBar({
           <DropdownMenuContent align="end" className="w-48">
             <DropdownMenuItem onClick={onDuplicate}>
               <Copy className="mr-2 h-4 w-4" />
-              <span>Duplicate section</span>
+              <span>Duplicate</span>
               <span className="ml-auto text-xs text-slate-500">⌘D</span>
             </DropdownMenuItem>
             <DropdownMenuSeparator />
@@ -692,7 +724,7 @@ function SectionControlBar({
               className="text-red-600 focus:text-red-600"
             >
               <Trash2 className="mr-2 h-4 w-4" />
-              <span>Delete section</span>
+              <span>Delete</span>
               <span className="ml-auto text-xs text-slate-500">⌘⇧⌫</span>
             </DropdownMenuItem>
           </DropdownMenuContent>
