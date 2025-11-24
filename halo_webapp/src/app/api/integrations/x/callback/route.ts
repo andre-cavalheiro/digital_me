@@ -157,21 +157,31 @@ export async function GET(request: NextRequest) {
   }
 
   const tokenJson = await tokenResponse.json()
-  const { access_token, refresh_token, expires_in, scope, token_type } = tokenJson as {
+  const { access_token, refresh_token, scope } = tokenJson as {
     access_token?: string
     refresh_token?: string
-    expires_in?: number
     scope?: string
-    token_type?: string
   }
 
-  if (!access_token) {
-    const resp = redirectWithParams(request, state.return_path || "/plugins", { x_oauth_error: "token_missing" })
+  if (!refresh_token) {
+    const resp = redirectWithParams(request, state.return_path || "/plugins", { x_oauth_error: "refresh_token_missing" })
     resp.cookies.set(verifierKey, "", { path: "/", maxAge: 0 })
     resp.cookies.set(stateKey, "", { path: "/", maxAge: 0 })
     resp.cookies.set(AUTH_TOKEN_COOKIE, "", { path: "/", maxAge: 0 })
     if (apiBase && authToken) {
-      await deletePluginIfNew(apiBase, state.plugin_id, authToken, state.is_new, "token_missing")
+      await deletePluginIfNew(apiBase, state.plugin_id, authToken, state.is_new, "refresh_token_missing")
+    }
+    return resp
+  }
+
+  // We still need the access_token temporarily to fetch the user profile
+  if (!access_token) {
+    const resp = redirectWithParams(request, state.return_path || "/plugins", { x_oauth_error: "access_token_missing" })
+    resp.cookies.set(verifierKey, "", { path: "/", maxAge: 0 })
+    resp.cookies.set(stateKey, "", { path: "/", maxAge: 0 })
+    resp.cookies.set(AUTH_TOKEN_COOKIE, "", { path: "/", maxAge: 0 })
+    if (apiBase && authToken) {
+      await deletePluginIfNew(apiBase, state.plugin_id, authToken, state.is_new, "access_token_missing")
     }
     return resp
   }
@@ -196,8 +206,6 @@ export async function GET(request: NextRequest) {
     console.warn("Failed to fetch X user profile", err)
   }
 
-  const expiresAt = expires_in ? new Date(Date.now() + expires_in * 1000).toISOString() : undefined
-
   if (!apiBase) {
     const resp = redirectWithParams(request, state.return_path || "/plugins", { x_oauth_error: "api_missing" })
     resp.cookies.set(verifierKey, "", { path: "/", maxAge: 0 })
@@ -211,10 +219,11 @@ export async function GET(request: NextRequest) {
       status: "connected",
       access_token,
       refresh_token,
-      expires_at: expiresAt,
-      token_type: token_type || "bearer",
+      token_type: tokenJson.token_type || "bearer",
+      expires_in: tokenJson.expires_in,
+      token_obtained_at: new Date().toISOString(),
       scope: scope || env.NEXT_PUBLIC_X_OAUTH_SCOPES || "",
-      obtained_at: new Date().toISOString(),
+      connected_at: new Date().toISOString(),
     },
     properties: {
       x_user_id: profile.id,
