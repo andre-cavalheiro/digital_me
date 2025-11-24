@@ -95,6 +95,7 @@ class DocumentContentBase(BaseSQLModel):
     content: str
     order_index: int
     word_count: int | None = None
+    embedded_content_id: int | None = None
 
 
 class DocumentContent(DocumentContentBase, BigIntIDModel, table=True):
@@ -111,6 +112,10 @@ class DocumentContent(DocumentContentBase, BigIntIDModel, table=True):
     content: str = Field(nullable=False)
     order_index: int = Field(nullable=False)
     word_count: int | None = Field(default=None, nullable=True)
+    embedded_content_id: int | None = Field(
+        default=None,
+        sa_column=sa.Column(sa.BigInteger, sa.ForeignKey("content.id", ondelete="SET NULL"), nullable=True),
+    )
     updated_at: datetime = Field(default_factory=datetime.utcnow, nullable=False)
 
 
@@ -136,6 +141,7 @@ class DocumentContentUpdate(BaseSQLModel):
     title: str | None = None
     order_index: int | None = None
     word_count: int | None = None
+    embedded_content_id: int | None = None
 
 
 class DocumentContentUpsert(BaseSQLModel):

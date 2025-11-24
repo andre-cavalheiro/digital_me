@@ -1,4 +1,4 @@
-from typing import Annotated, Any
+from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, status
 
@@ -115,7 +115,7 @@ async def delete_content_item(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
 
 
-@content_router.post(paths.CONTENT_SEARCH, response_model=list[dict[str, Any]])
+@content_router.post(paths.CONTENT_SEARCH, response_model=list[ContentRead])
 async def search_content(
     search: ContentSearchRequest,
     content_service: Annotated[
@@ -129,12 +129,11 @@ async def search_content(
         ),
     ],
     x_client: Annotated[XAppClient, Depends(get_x_app_client)],
-) -> list[dict[str, Any]]:
-    """
+) -> list[ContentRead]:
     # Simple search: return all content (TODO: Add actual search logic with filters/query)
     # get_items() returns an async generator, so we need to consume it
     results = []
     async for item in content_service.get_items():
         results.append(item)
-    """
-    return await content_service.search_external_sources(search, x_client=x_client)
+    return results
+    # return await content_service.search_external_sources(search, x_client=x_client)
