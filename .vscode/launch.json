@@ -5,6 +5,26 @@
     "version": "0.2.0",
     "configurations": [
         {
+            "name": "Script: import_x_bookmarks",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/fury_api/src/fury_api/scripts/import_x_bookmarks.py",
+            "args": [
+                "--organization-id",
+                "1",
+                "--user-id",
+                "1",
+                "--plugin-id",
+                "29",
+                "--max-results",
+                "20"
+            ],
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}/fury_api",
+            "python": "${workspaceFolder}/fury_api/.venv/bin/python",
+            "justMyCode": false
+        },
+        {
             "name": "Module: fury_api",
             "type": "debugpy",
             "request": "launch",
