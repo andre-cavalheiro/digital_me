@@ -40,9 +40,41 @@ envFrom:
 postgresql:
   enabled: true
   auth:
-    existingSecret: postgres-auth
+    # Credentials are set via helm --set flags in Makefile's push-helm target
+    username: postgres
+    database: digital-me
   service:
     port: 5432
+  image:
+    registry: docker.io
+    repository: pgvector/pgvector
+    tag: pg15
+  primary:
+    extraEnvVars:
+      - name: POSTGRES_DB
+        value: digital-me
+    initdb:
+      scripts:
+        enable-vector.sh: |
+          #!/bin/bash
+          set -e
+          psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "digital-me" <<-EOSQL
+            CREATE SCHEMA IF NOT EXISTS platform;
+            CREATE EXTENSION IF NOT EXISTS vector SCHEMA platform;
+          EOSQL
+    podSecurityContext:
+      enabled: true
+      fsGroup: 999
+    containerSecurityContext:
+      enabled: true
+      runAsUser: 999
+      runAsNonRoot: true
+    extraVolumes:
+      - name: run-postgresql
+        emptyDir: {}
+    extraVolumeMounts:
+      - name: run-postgresql
+        mountPath: /var/run/postgresql
 
 
 # Autoscaling configuration
