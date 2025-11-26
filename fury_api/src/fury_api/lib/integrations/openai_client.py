@@ -14,15 +14,15 @@ class OpenAIClient(BaseAIClient):
         api_key: str,
         base_url: str | None = None,
         default_model: str = "gpt-4o-mini",
-        organization: str | None = None,
+        default_embedding_model: str = "text-embedding-3-small",
         timeout: float = 30.0,
         client: AsyncOpenAI | None = None,
     ) -> None:
         self._default_model = default_model
+        self._default_embedding_model = default_embedding_model
         self._client = client or AsyncOpenAI(
             api_key=api_key,
             base_url=base_url,
-            organization=organization,
             timeout=timeout,
         )
         self._owns_client = client is None
@@ -53,3 +53,22 @@ class OpenAIClient(BaseAIClient):
             usage=response.usage.model_dump() if response.usage else None,
             model=response.model,
         )
+
+    async def embed(self, text: str, *, model: str | None = None) -> list[float]:
+        """Return a single embedding for the given text."""
+        response = await self._client.embeddings.create(
+            input=text,
+            model=model or self._default_embedding_model,
+        )
+        return response.data[0].embedding
+
+    async def embed_batch(self, texts: list[str], *, model: str | None = None) -> list[list[float]]:
+        """Return embeddings for a batch of texts."""
+        if not texts:
+            return []
+
+        response = await self._client.embeddings.create(
+            input=texts,
+            model=model or self._default_embedding_model,
+        )
+        return [item.embedding for item in response.data]

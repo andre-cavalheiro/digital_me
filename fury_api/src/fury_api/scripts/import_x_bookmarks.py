@@ -85,7 +85,10 @@ async def _ensure_source(
 def _map_posts_to_content(posts: Iterable[Any], *, organization_id: int, source_id: int) -> list[Content]:
     contents: list[Content] = []
     for post in posts:
-        body = post.text or ""
+        # For long-form tweets (>280 chars), use note_tweet.text; otherwise use text
+        body = (post.note_tweet.text if post.note_tweet else post.text) or ""
+        # Excerpt should be truncated for display (limit to 280 chars)
+        excerpt = body[:280] + "..." if len(body) > 280 else body
         contents.append(
             Content(
                 organization_id=organization_id,
@@ -94,7 +97,7 @@ def _map_posts_to_content(posts: Iterable[Any], *, organization_id: int, source_
                 external_url=post.tweet_url,
                 title=None,
                 body=body,
-                excerpt=body,
+                excerpt=excerpt,
                 published_at=post.created_at,
                 synced_at=datetime.now(timezone.utc),
                 platform_metadata=post.model_dump(),

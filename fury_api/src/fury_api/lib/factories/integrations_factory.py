@@ -80,7 +80,7 @@ class IntegrationsFactory:
                 api_key=api_key,
                 base_url=config.ai_openai.BASE_URL,
                 default_model=model,
-                organization=config.ai_openai.ORGANIZATION,
+                default_embedding_model=config.ai_openai.EMBEDDING_MODEL,
                 timeout=config.ai.REQUEST_TIMEOUT,
             )
 

@@ -18,6 +18,7 @@ class XAppClient:
     DEFAULT_TWEET_FIELDS = [
         "id",
         "text",
+        "note_tweet",
         "conversation_id",
         "created_at",
         "author_id",

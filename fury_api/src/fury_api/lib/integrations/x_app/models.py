@@ -11,6 +11,7 @@ __all__ = [
     "SearchMedia",
     "TweetPublicMetrics",
     "ReferencedTweet",
+    "NoteTweet",
     "SearchPost",
     "SearchIncludes",
     "SearchMeta",
@@ -75,6 +76,13 @@ class ReferencedTweet(BaseModel):
     id: str
 
 
+class NoteTweet(BaseModel):
+    """Long-form tweet content (for tweets > 280 characters)."""
+
+    text: str
+    entities: dict[str, Any] | None = None
+
+
 class SearchPost(BaseModel):
     """Tweet payload with full display data."""
 
@@ -82,6 +90,7 @@ class SearchPost(BaseModel):
 
     id: str
     text: str | None = None
+    note_tweet: NoteTweet | None = None
     conversation_id: str | None = None
     created_at: datetime | None = None
     author_id: str | None = None
