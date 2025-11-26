@@ -2,7 +2,7 @@ import { api } from "./client"
 import { withMock, mockContentItems } from "./mocks"
 import { contentItemSchema } from "./schemas/content"
 import { paginatedResponseSchema } from "./schemas/pagination"
-import type { ContentItem, ContentSearchParams } from "./types"
+import type { ContentItem, ContentSearchParams, FetchContentListParams, ContentListResponse } from "./types"
 
 export async function fetchContentFeed(params?: { limit?: number; sorts?: string }): Promise<ContentItem[]> {
   return withMock(
@@ -103,4 +103,74 @@ function normalizeContentItem(raw: any, idx: number): ContentItem | null {
     published_at: typeof raw.published_at === "string" ? raw.published_at : undefined,
     source_url: typeof raw.source_url === "string" ? raw.source_url : undefined,
   }
+}
+
+export async function fetchContentList(params: FetchContentListParams = {}): Promise<ContentListResponse> {
+  const {
+    cursor,
+    limit = 20,
+    sourceIds,
+    publishedAfter,
+    publishedBefore,
+    sortBy = "published_at",
+    sortOrder = "desc",
+    includeTotal = false,
+  } = params
+
+  // Build query parameters
+  const queryParams: Record<string, string> = {
+    size: String(limit),
+  }
+
+  if (cursor) {
+    queryParams.cursor = cursor
+  }
+
+  if (includeTotal) {
+    queryParams.includeTotal = "true"
+  }
+
+  // Build filters array
+  const filters: string[] = []
+
+  if (sourceIds && sourceIds.length > 0) {
+    filters.push(`source_id[in]:${sourceIds.join(",")}`)
+  }
+
+  if (publishedAfter) {
+    filters.push(`published_at[gte]:${publishedAfter}`)
+  }
+
+  if (publishedBefore) {
+    filters.push(`published_at[lte]:${publishedBefore}`)
+  }
+
+  // Add filters to query params
+  if (filters.length > 0) {
+    queryParams.filters = filters.join("&filters=")
+  }
+
+  // Add sorting
+  queryParams.sorts = `${sortBy}:${sortOrder}`
+
+  return withMock(
+    {
+      items: mockContentItems.slice(0, limit),
+      nextCursor: mockContentItems.length > limit ? "mock_cursor_next" : null,
+      previousCursor: null,
+      total: includeTotal ? mockContentItems.length : null,
+    },
+    async () => {
+      const response = await api.get("/content", { params: queryParams })
+      const paginatedSchema = paginatedResponseSchema(contentItemSchema)
+      const parsed = paginatedSchema.parse(response.data)
+
+      return {
+        items: parsed.items,
+        nextCursor: parsed.next_page || null,
+        previousCursor: parsed.previous_page || null,
+        total: parsed.total !== undefined ? parsed.total : null,
+      }
+    },
+  )
 }

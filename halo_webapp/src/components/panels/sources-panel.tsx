@@ -6,7 +6,7 @@ import { searchContent, type ContentItem, type TwitterPlatformMetadata } from "@
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import Image from "next/image"
+import { TweetCard, SourceCard } from "@/components/content/content-cards"
 
 type Props = {
   documentId: number
@@ -127,103 +127,6 @@ export function SourcesPanel({ documentId, selectionText }: Props) {
   )
 }
 
-function TweetCard({ item, metadata }: { item: ContentItem; metadata: TwitterPlatformMetadata }) {
-  const { author } = metadata
-  const tweetText = item.body || metadata.text
-
-  return (
-    <article
-      draggable
-      className="group cursor-grab rounded-lg border border-slate-200 bg-white p-3 shadow-sm transition hover:-translate-y-0.5 hover:border-sky-200 hover:shadow-md active:cursor-grabbing"
-      onDragStart={(event) => {
-        event.dataTransfer?.setData("application/x-content-id", String(item.id))
-        event.dataTransfer?.setData("application/x-content-title", `@${author.username}`)
-        event.dataTransfer?.setData("text/plain", tweetText)
-        event.dataTransfer?.setDragImage(createDragImage(`@${author.username}`), 0, 0)
-      }}
-    >
-      <div className="flex gap-3">
-        {/* Avatar */}
-        <div className="flex-shrink-0">
-          <div className="relative h-10 w-10 overflow-hidden rounded-full bg-slate-200">
-            <Image
-              src={author.profile_image_url}
-              alt={author.name}
-              fill
-              className="object-cover"
-              unoptimized
-            />
-          </div>
-        </div>
-
-        {/* Tweet content */}
-        <div className="min-w-0 flex-1">
-          {/* Author info */}
-          <div className="flex items-start gap-1">
-            <span className="truncate font-semibold text-sm leading-tight text-slate-900">
-              {author.name}
-            </span>
-            {author.verified && (
-              <svg className="h-4 w-4 flex-shrink-0 text-sky-500" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M22.25 12c0-1.43-.88-2.67-2.19-3.34.46-1.39.2-2.9-.81-3.91s-2.52-1.27-3.91-.81c-.66-1.31-1.91-2.19-3.34-2.19s-2.67.88-3.33 2.19c-1.4-.46-2.91-.2-3.92.81s-1.26 2.52-.8 3.91c-1.31.67-2.2 1.91-2.2 3.34s.89 2.67 2.2 3.34c-.46 1.39-.21 2.9.8 3.91s2.52 1.26 3.91.81c.67 1.31 1.91 2.19 3.34 2.19s2.68-.88 3.34-2.19c1.39.45 2.9.2 3.91-.81s1.27-2.52.81-3.91c1.31-.67 2.19-1.91 2.19-3.34zm-11.71 4.2L6.8 12.46l1.41-1.42 2.26 2.26 4.8-5.23 1.47 1.36-6.2 6.77z" />
-              </svg>
-            )}
-            <span className="truncate text-sm text-slate-500">
-              @{author.username}
-            </span>
-          </div>
-
-          {/* Tweet text */}
-          <p className="mt-1 whitespace-pre-wrap text-sm leading-relaxed text-slate-900">
-            {tweetText}
-          </p>
-
-          {/* Metrics */}
-          {metadata.public_metrics && (
-            <div className="mt-2 flex gap-4 text-xs text-slate-500">
-              {metadata.public_metrics.like_count > 0 && (
-                <span>{metadata.public_metrics.like_count.toLocaleString()} likes</span>
-              )}
-              {metadata.public_metrics.retweet_count > 0 && (
-                <span>{metadata.public_metrics.retweet_count.toLocaleString()} retweets</span>
-              )}
-              {metadata.public_metrics.reply_count > 0 && (
-                <span>{metadata.public_metrics.reply_count.toLocaleString()} replies</span>
-              )}
-            </div>
-          )}
-        </div>
-      </div>
-    </article>
-  )
-}
-
-function SourceCard({ item }: { item: ContentItem }) {
-  return (
-    <article
-      draggable
-      className="group rounded-lg border border-slate-200 bg-white/80 p-3 shadow-sm transition hover:-translate-y-0.5 hover:border-sky-200 hover:shadow-md"
-      onDragStart={(event) => {
-        event.dataTransfer?.setData("application/x-content-id", String(item.id))
-        event.dataTransfer?.setData("application/x-content-title", item.title)
-        event.dataTransfer?.setData("text/plain", item.title)
-        event.dataTransfer?.setDragImage(createDragImage(item.title), 0, 0)
-      }}
-    >
-      <div className="flex items-start justify-between gap-2">
-        <div className="space-y-1">
-          <p className="text-sm font-medium leading-5">{item.title}</p>
-          {(item.author || item.published_at) && (
-            <p className="text-xs text-muted-foreground">
-              {[item.author, item.published_at ? formatDate(item.published_at) : undefined].filter(Boolean).join(" • ")}
-            </p>
-          )}
-        </div>
-      </div>
-      <p className="mt-2 line-clamp-3 text-sm leading-6 text-muted-foreground">{item.excerpt || item.summary || "No excerpt available."}</p>
-    </article>
-  )
-}
 
 function EmptyPrompt({ icon, title, hint }: { icon?: React.ReactNode; title: string; hint: string }) {
   return (
@@ -259,32 +162,4 @@ function ErrorState({ onRetry, label }: { onRetry: () => void; label: string }) 
       </Button>
     </div>
   )
-}
-
-function formatDate(value: string) {
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return value
-  return date.toLocaleDateString(undefined, { month: "short", day: "numeric" })
-}
-
-function createDragImage(title: string) {
-  const el = document.createElement("div")
-  el.textContent = `Source: ${title}`
-  el.style.position = "fixed"
-  el.style.top = "0"
-  el.style.left = "0"
-  el.style.padding = "6px 10px"
-  el.style.borderRadius = "8px"
-  el.style.background = "rgba(12,74,110,0.9)"
-  el.style.color = "white"
-  el.style.fontSize = "12px"
-  el.style.fontWeight = "600"
-  el.style.pointerEvents = "none"
-  document.body.appendChild(el)
-  setTimeout(() => {
-    if (el.parentNode) {
-      el.parentNode.removeChild(el)
-    }
-  }, 0)
-  return el
 }

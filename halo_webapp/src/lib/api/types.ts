@@ -90,6 +90,24 @@ export interface ContentSearchParams {
   source_group_ids?: number[]
 }
 
+export interface FetchContentListParams {
+  cursor?: string | null
+  limit?: number
+  sourceIds?: number[]
+  publishedAfter?: string
+  publishedBefore?: string
+  sortBy?: "published_at" | "created_at"
+  sortOrder?: "asc" | "desc"
+  includeTotal?: boolean
+}
+
+export interface ContentListResponse {
+  items: ContentItem[]
+  nextCursor: string | null
+  previousCursor: string | null
+  total: number | null
+}
+
 // Citations
 export interface Citation {
   id?: number
