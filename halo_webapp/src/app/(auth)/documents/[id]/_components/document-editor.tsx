@@ -22,18 +22,19 @@ type SelectionContext = {
 type DocumentEditorProps = {
   sections: DocumentSection[]
   onSectionsChange: (contents: string[]) => void
+  onUpdateSectionContent?: (sectionIndex: number, content: string) => void
   onSelectionChange?: (context: SelectionContext) => void
   onBlurSave?: () => void
   onDropCitation?: (sectionIndex: number, position: number, contentId: number) => void
   onDropEmbeddedContent?: (afterSectionIndex: number, contentId: number) => void
-  onCreateSection?: (afterSectionIndex: number) => void
+  onCreateSection?: (afterSectionIndex: number, options?: { initialContent?: string }) => void
   onDeleteSection?: (sectionIndex: number) => void
   onDuplicateSection?: (sectionIndex: number) => void
   onReorderSection?: (fromIndex: number, toIndex: number) => void
   contentCache?: Record<number, ContentItem>
 }
 
-export function DocumentEditor({ sections, onSectionsChange, onSelectionChange, onBlurSave, onDropCitation, onDropEmbeddedContent, onCreateSection, onDeleteSection, onDuplicateSection, onReorderSection, contentCache = {} }: DocumentEditorProps) {
+export function DocumentEditor({ sections, onSectionsChange, onUpdateSectionContent, onSelectionChange, onBlurSave, onDropCitation, onDropEmbeddedContent, onCreateSection, onDeleteSection, onDuplicateSection, onReorderSection, contentCache = {} }: DocumentEditorProps) {
   const [selected, setSelected] = useState<number | null>(null)
   const textareasRef = useRef<Array<HTMLTextAreaElement | null>>([])
   const containerRefs = useRef<Array<HTMLDivElement | null>>([])
@@ -120,38 +121,80 @@ export function DocumentEditor({ sections, onSectionsChange, onSelectionChange, 
 
     const before = value.slice(0, start)
     const after = value.slice(end)
-    const hasDoubleBreakBefore = /\n{2}$/.test(before)
-    const hasDoubleBreakAfter = /^\n{2}/.test(after)
+
+    // More explicit pattern: exactly 2 newlines (not 2+)
+    const hasDoubleBreakBefore = before.endsWith('\n\n')
+    const hasDoubleBreakAfter = after.startsWith('\n\n')
 
     // Require two blank lines (one extra paragraph) to split into a new section
     if (hasDoubleBreakBefore || hasDoubleBreakAfter) {
       event.preventDefault()
-      const head = before.replace(/\n+$/, "")
-      const tail = after.replace(/^\n+/, "")
-      const contents = sections.map((s) => s.content)
-      const nextContents = [
-        ...contents.slice(0, index),
-        head,
-        tail,
-        ...contents.slice(index + 1),
-      ].filter((text, idx, arr) => !(text === "" && idx !== 0 && idx !== arr.length - 1))
 
-      onSectionsChange(nextContents)
-      requestAnimationFrame(() => focusSection(index + 1, "start"))
-      setSelected(index + 1)
-      onSelectionChange?.({ text: tail, start: 0, end: 0, sectionIndex: index + 1 })
+      // Guard: Ensure current section is a text section (not embedded)
+      const currentSection = sections[index]
+      if (currentSection?.embedded_content_id) {
+        // This shouldn't happen (embedded sections don't have textareas)
+        // but guard defensively
+        return
+      }
+
+      // Step 1: Trim current section content
+      const trimmedContent = before.replace(/\n+$/, "")
+      const tailContent = after.replace(/^\n+/, "")
+
+      // Step 2: Update current section using the dedicated handler if available
+      if (onUpdateSectionContent) {
+        onUpdateSectionContent(index, trimmedContent)
+      } else {
+        // Fallback to old method if handler not available
+        const contents = sections.map((s) => s.content)
+        contents[index] = trimmedContent
+        onSectionsChange(contents)
+      }
+
+      // Step 3: Use unified section creation (same as + button)
+      if (onCreateSection) {
+        // Schedule section creation after state update
+        requestAnimationFrame(() => {
+          onCreateSection(index, { initialContent: tailContent })
+
+          // Step 4: Focus the new section
+          requestAnimationFrame(() => {
+            focusSection(index + 1, "start")
+            setSelected(index + 1)
+            onSelectionChange?.({
+              text: tailContent,
+              start: 0,
+              end: 0,
+              sectionIndex: index + 1
+            })
+          })
+        })
+      }
       return
     }
   }
 
   const focusSection = (index: number, cursor: number | "start" | "end" = "start") => {
     const textarea = textareasRef.current[index]
-    if (textarea) {
-      textarea.focus()
-      const length = textarea.value.length
-      const position = cursor === "end" ? length : typeof cursor === "number" ? cursor : 0
-      textarea.setSelectionRange(position, position)
+    if (!textarea) {
+      // Retry once if textarea not available yet (after section creation)
+      requestAnimationFrame(() => {
+        const retryTextarea = textareasRef.current[index]
+        if (retryTextarea) {
+          retryTextarea.focus()
+          const length = retryTextarea.value.length
+          const position = cursor === "end" ? length : typeof cursor === "number" ? cursor : 0
+          retryTextarea.setSelectionRange(position, position)
+        }
+      })
+      return
     }
+
+    textarea.focus()
+    const length = textarea.value.length
+    const position = cursor === "end" ? length : typeof cursor === "number" ? cursor : 0
+    textarea.setSelectionRange(position, position)
   }
 
   const handleDragOver = (event: React.DragEvent<HTMLTextAreaElement>, sectionIndex: number) => {

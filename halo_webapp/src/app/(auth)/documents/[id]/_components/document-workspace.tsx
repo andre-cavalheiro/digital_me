@@ -197,11 +197,13 @@ export function DocumentWorkspace({ documentId }: Props) {
     }
   }
 
-  const handleCreateSection = (afterSectionIndex: number) => {
+  const handleCreateSection = (afterSectionIndex: number, options?: {
+    initialContent?: string
+  }) => {
     const insertIndex = afterSectionIndex + 1
     const newSection: DocumentSection = {
       document_id: documentId,
-      content: "",
+      content: options?.initialContent ?? "",
       order_index: insertIndex,
       embedded_content_id: null,
     }
@@ -209,6 +211,24 @@ export function DocumentWorkspace({ documentId }: Props) {
     setSections((previous) => {
       const next = [...previous]
       next.splice(insertIndex, 0, newSection)
+      return next
+    })
+  }
+
+  const handleUpdateSectionContent = (sectionIndex: number, content: string) => {
+    setSections((previous) => {
+      const next = [...previous]
+      const section = next[sectionIndex]
+      if (!section) return previous
+
+      // Never modify embedded content sections
+      if (section.embedded_content_id) return previous
+
+      next[sectionIndex] = {
+        ...section,
+        content,
+        word_count: countWords(content),
+      }
       return next
     })
   }
@@ -304,6 +324,28 @@ export function DocumentWorkspace({ documentId }: Props) {
     }
   }
 
+  // Keyboard shortcuts for toggling panels
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      // Cmd/Ctrl + B toggles left panel (Sources)
+      if ((event.metaKey || event.ctrlKey) && event.key === 'b' && !event.shiftKey) {
+        event.preventDefault()
+        setShowSources((prev) => !prev)
+        return
+      }
+
+      // Cmd/Ctrl + Shift + B toggles right panel (Assistant)
+      if ((event.metaKey || event.ctrlKey) && event.key === 'B' && event.shiftKey) {
+        event.preventDefault()
+        setShowAssistant((prev) => !prev)
+        return
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [])
+
   if (status === "loading") {
     return (
       <div className="h-full rounded-xl border bg-white p-6 shadow-sm">
@@ -374,16 +416,16 @@ export function DocumentWorkspace({ documentId }: Props) {
           <button
             onClick={() => setShowSources((prev) => !prev)}
             className="flex h-9 w-9 items-center justify-center rounded-md transition hover:bg-slate-100"
-            aria-label={showSources ? "Hide Sources" : "Show Sources"}
-            title={showSources ? "Hide Sources" : "Show Sources"}
+            aria-label={showSources ? "Hide Sources (⌘B)" : "Show Sources (⌘B)"}
+            title={showSources ? "Hide Sources (⌘B)" : "Show Sources (⌘B)"}
           >
             {showSources ? <PanelLeftClose className="h-4 w-4" /> : <PanelLeftOpen className="h-4 w-4" />}
           </button>
           <button
             onClick={() => setShowAssistant((prev) => !prev)}
             className="flex h-9 w-9 items-center justify-center rounded-md transition hover:bg-slate-100"
-            aria-label={showAssistant ? "Hide Assistant" : "Show Assistant"}
-            title={showAssistant ? "Hide Assistant" : "Show Assistant"}
+            aria-label={showAssistant ? "Hide Assistant (⌘⇧B)" : "Show Assistant (⌘⇧B)"}
+            title={showAssistant ? "Hide Assistant (⌘⇧B)" : "Show Assistant (⌘⇧B)"}
           >
             {showAssistant ? <PanelRightClose className="h-4 w-4" /> : <PanelRightOpen className="h-4 w-4" />}
           </button>
@@ -400,6 +442,7 @@ export function DocumentWorkspace({ documentId }: Props) {
           <DocumentEditor
             sections={sections}
             onSectionsChange={handleSectionsChange}
+            onUpdateSectionContent={handleUpdateSectionContent}
             onSelectionChange={handleSelectionChange}
             onBlurSave={persistSections}
             onDropCitation={handleCitationDrop}
