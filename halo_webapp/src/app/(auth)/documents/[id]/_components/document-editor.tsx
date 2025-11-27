@@ -11,6 +11,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import { formatTweetText } from "@/lib/twitter/format-tweet"
 
 type SelectionContext = {
   text: string
@@ -779,7 +780,8 @@ function SectionControlBar({
 
 function EmbeddedTweetCard({ item, metadata }: { item: ContentItem; metadata: TwitterPlatformMetadata }) {
   const { author } = metadata
-  const tweetText = item.body || metadata.text
+  const tweetText = metadata.note_tweet?.text || item.body || metadata.text
+  const entities = metadata.note_tweet?.entities || metadata.entities
 
   return (
     <article className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
@@ -814,7 +816,7 @@ function EmbeddedTweetCard({ item, metadata }: { item: ContentItem; metadata: Tw
 
           {/* Tweet text */}
           <p className="mt-3 whitespace-pre-wrap text-base leading-relaxed text-slate-900">
-            {tweetText}
+            {formatTweetText(tweetText, entities)}
           </p>
 
           {/* Metrics */}

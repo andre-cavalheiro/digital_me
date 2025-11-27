@@ -4,6 +4,7 @@ import Image from "next/image"
 import { ExternalLink } from "lucide-react"
 import type { ContentItem, TwitterPlatformMetadata } from "@/lib/api"
 import { Button } from "@/components/ui/button"
+import { formatTweetText } from "@/lib/twitter/format-tweet"
 
 type TweetCardProps = {
   item: ContentItem
@@ -12,7 +13,8 @@ type TweetCardProps = {
 
 export function TweetCard({ item, metadata }: TweetCardProps) {
   const { author } = metadata
-  const tweetText = item.body || metadata.text
+  const tweetText = metadata.note_tweet?.text || item.body || metadata.text
+  const entities = metadata.note_tweet?.entities || metadata.entities
   const tweetUrl = metadata.tweet_url || `https://twitter.com/${author.username}/status/${metadata.id}`
 
   const handleExternalLink = (e: React.MouseEvent) => {
@@ -72,7 +74,9 @@ export function TweetCard({ item, metadata }: TweetCardProps) {
           </div>
 
           {/* Tweet text */}
-          <p className="mt-1 whitespace-pre-wrap text-sm leading-relaxed text-slate-900">{tweetText}</p>
+          <p className="mt-1 whitespace-pre-wrap break-words text-sm leading-relaxed text-slate-900">
+            {formatTweetText(tweetText, entities)}
+          </p>
 
           {/* Metrics */}
           {metadata.public_metrics && (

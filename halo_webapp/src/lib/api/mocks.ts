@@ -1,4 +1,5 @@
-import type { User, Organization, Plugin, Document, DocumentSection, ContentItem, Citation, Conversation, Message } from "./types"
+import type { User, Organization, Plugin, Document, DocumentSection, Citation, Conversation, Message } from "./types"
+import type { ContentItem } from "./schemas/content"
 import { env } from "@/app/env"
 
 export const mockOrganization: Organization = {
@@ -65,25 +66,34 @@ export const mockContentItems: ContentItem[] = [
     id: 11,
     title: "The Future of Creative Work",
     excerpt: "AI tools as collaborative partners that augment capabilities.",
+    summary: "AI tools as collaborative partners that augment capabilities.",
     author: "Ethan Foster",
     published_at: "2024-01-03T09:00:00Z",
     source_url: "https://example.com/future-of-work",
+    platform_metadata: undefined,
+    body: undefined,
   },
   {
     id: 12,
     title: "Curation Over Creation",
     excerpt: "Abundance shifts the bottleneck from generating ideas to selecting the right ones.",
+    summary: "Abundance shifts the bottleneck from generating ideas to selecting the right ones.",
     author: "Fiona Green",
     published_at: "2024-01-02T10:00:00Z",
     source_url: "https://example.com/curation",
+    platform_metadata: undefined,
+    body: undefined,
   },
   {
     id: 13,
     title: "Adapting to AI Integration",
     excerpt: "Creators who embrace new tools gain significant advantages over those who resist change.",
+    summary: "Creators who embrace new tools gain significant advantages over those who resist change.",
     author: "George Harris",
     published_at: "2024-01-01T08:00:00Z",
     source_url: "https://example.com/adapting-ai",
+    platform_metadata: undefined,
+    body: undefined,
   },
 ]
 

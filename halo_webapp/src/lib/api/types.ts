@@ -1,3 +1,5 @@
+import type { TwitterEntities } from "../twitter/types"
+
 export interface PaginatedResponse<T> {
   items: T[]
   total?: number
@@ -56,6 +58,11 @@ export interface TwitterPlatformMetadata {
   id: string
   text: string
   author: TwitterAuthor
+  entities?: TwitterEntities
+  note_tweet?: {
+    text: string
+    entities?: TwitterEntities
+  }
   public_metrics?: {
     like_count: number
     retweet_count: number
@@ -74,8 +81,8 @@ export interface TwitterPlatformMetadata {
 export interface ContentItem {
   id: number
   title: string
-  summary?: string | null
-  excerpt?: string | null
+  summary?: string
+  excerpt?: string
   author?: string
   published_at?: string
   source_url?: string

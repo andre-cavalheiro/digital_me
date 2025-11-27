@@ -20,7 +20,7 @@ export default function PluginsPage() {
   const [installingPlugin, setInstallingPlugin] = useState<string | null>(null)
   const [deletingPlugin, setDeletingPlugin] = useState<PluginDataSourceId | null>(null)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState<PluginDataSourceId | null>(null)
-  const [installDialogOpen, setInstallDialogOpen] = useState(false)
+  const [installDialogOpen, setInstallDialogOpen] = useState<PluginDataSourceId | null>(null)
 
   useEffect(() => {
     const fetchPlugins = async () => {
@@ -55,12 +55,13 @@ export default function PluginsPage() {
       }
 
       if (platformId === "x") {
+        setInstallDialogOpen(null)
         await startXOauth(plugin.id, "/plugins", !existing)
         return
       }
 
       toast.success(`${platformDisplayName} integration installed successfully`)
-      setInstallDialogOpen(false)
+      setInstallDialogOpen(null)
     } catch (error) {
       console.error("Error installing plugin:", error)
       toast.error(`Failed to install ${platformDisplayName} integration`)
@@ -268,7 +269,10 @@ export default function PluginsPage() {
                         </TooltipContent>
                       </Tooltip>
                     ) : canInstall ? (
-                      <Dialog open={installDialogOpen} onOpenChange={setInstallDialogOpen}>
+                      <Dialog
+                        open={installDialogOpen === platform.id}
+                        onOpenChange={open => setInstallDialogOpen(open ? platform.id : null)}
+                      >
                         <DialogTrigger asChild>
                           <Button
                             className="w-full cursor-pointer bg-primary hover:bg-primary/90 transition-colors"
@@ -295,7 +299,7 @@ export default function PluginsPage() {
                               type="button"
                               variant="outline"
                               className="cursor-pointer"
-                              onClick={() => setInstallDialogOpen(false)}
+                              onClick={() => setInstallDialogOpen(null)}
                               data-gtm-event="dialog_action"
                               data-gtm-name="Integration Install – Cancel"
                               data-gtm-id="integration_install_cancel"
