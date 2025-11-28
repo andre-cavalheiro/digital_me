@@ -109,6 +109,23 @@ export interface Collection {
   updated_at: string
 }
 
+export interface QuotedTweetData {
+  id: string
+  text: string
+  author: {
+    id: string
+    name: string
+    username: string
+    avatar_url: string
+  } | null
+  created_at: string | null
+  url: string | null
+}
+
+export interface ContentExtraFields {
+  quoted_tweet?: QuotedTweetData
+}
+
 export interface ContentItem {
   id: number
   title: string
@@ -120,6 +137,7 @@ export interface ContentItem {
   source_url?: string
   body?: string
   platform_metadata?: TwitterPlatformMetadata | Record<string, any>
+  extra_fields?: ContentExtraFields | null
 }
 
 export interface ContentSearchParams {

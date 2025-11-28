@@ -1,5 +1,22 @@
 import { z } from "zod"
 
+const quotedTweetDataSchema = z.object({
+  id: z.string(),
+  text: z.string(),
+  author: z.object({
+    id: z.string(),
+    name: z.string(),
+    username: z.string(),
+    avatar_url: z.string(),
+  }).nullable(),
+  created_at: z.string().nullable(),
+  url: z.string().nullable(),
+})
+
+const contentExtraFieldsSchema = z.object({
+  quoted_tweet: quotedTweetDataSchema.optional(),
+}).optional().nullable()
+
 export const contentItemSchema = z
   .object({
     id: z.number(),
@@ -23,6 +40,8 @@ export const contentItemSchema = z
     syncedAt: z.string().optional(),
     platform_metadata: z.record(z.string(), z.unknown()).optional(),
     platformMetadata: z.record(z.string(), z.unknown()).optional(),
+    extra_fields: contentExtraFieldsSchema,
+    extraFields: contentExtraFieldsSchema,
     created_at: z.string().optional(),
     createdAt: z.string().optional(),
     updated_at: z.string().optional(),
@@ -38,6 +57,7 @@ export const contentItemSchema = z
     published_at: data.published_at || data.publishedAt,
     source_url: data.source_url || data.source_url || data.external_url || data.externalUrl || undefined,
     platform_metadata: data.platformMetadata || data.platform_metadata,
+    extra_fields: data.extra_fields ?? data.extraFields ?? null,
     body: data.body,
   }))
 

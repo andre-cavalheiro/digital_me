@@ -81,6 +81,23 @@ class ContentsService(SqlService[Content]):
         async with IntegrationsFactory.get_ai_client() as client:
             return await _run(client)
 
+    def _prepare_embedding_text(self, content: Content) -> str:
+        """
+        Prepare text for embedding generation.
+
+        For quote tweets, combines main tweet text with quoted tweet text
+        to enable semantic search across both.
+        """
+        text = content.body
+
+        # If this is a quote tweet, append the quoted tweet text
+        if content.extra_fields and "quoted_tweet" in content.extra_fields:
+            quoted_text = content.extra_fields["quoted_tweet"].get("text")
+            if quoted_text:
+                text = f"{text}\n\n[Quoted: {quoted_text}]"
+
+        return text
+
     async def _embed_contents(
         self,
         contents: Iterable[Content],
@@ -92,7 +109,8 @@ class ContentsService(SqlService[Content]):
             return
 
         async def apply(client: BaseAIClient) -> None:
-            embeddings = await client.embed_batch([c.body for c in targets])
+            embedding_texts = [self._prepare_embedding_text(c) for c in targets]
+            embeddings = await client.embed_batch(embedding_texts)
             for content, embedding in zip(targets, embeddings, strict=False):
                 content.embedding = embedding
 

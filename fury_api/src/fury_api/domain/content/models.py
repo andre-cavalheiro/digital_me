@@ -23,6 +23,7 @@ class ContentBase(BaseSQLModel):
     synced_at: datetime | None = None
     platform_metadata: dict[str, Any] | None = None
     embedding: list[float] | None = None
+    extra_fields: dict[str, Any] | None = None
 
 
 class Content(ContentBase, BigIntIDModel, table=True):
@@ -47,6 +48,7 @@ class Content(ContentBase, BigIntIDModel, table=True):
         default=None,
         sa_column=sa.Column(Vector(1536), nullable=True),
     )
+    extra_fields: dict[str, Any] | None = Field(default=None, sa_type=sa.JSON, nullable=True)
     created_at: datetime = Field(default_factory=datetime.utcnow, nullable=False)
     updated_at: datetime = Field(default_factory=datetime.utcnow, nullable=False)
 
@@ -70,6 +72,7 @@ class ContentCreate(ContentBase):
     published_at: Optional[datetime] = None
     synced_at: Optional[datetime] = None
     platform_metadata: Optional[dict[str, Any]] = None
+    extra_fields: Optional[dict[str, Any]] = None
 
 
 class ContentUpdate(BaseSQLModel):
@@ -80,6 +83,7 @@ class ContentUpdate(BaseSQLModel):
     published_at: datetime | None = None
     synced_at: datetime | None = None
     platform_metadata: dict[str, Any] | None = None
+    extra_fields: dict[str, Any] | None = None
 
 
 class ContentSearchRequest(BaseSQLModel):

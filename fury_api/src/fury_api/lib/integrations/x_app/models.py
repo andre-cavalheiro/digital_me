@@ -118,6 +118,7 @@ class SearchPost(BaseModel):
     # === Denormalized fields (populated after joining includes) ===
     author: SearchUser | None = None
     media: list[SearchMedia] | None = None
+    quoted_tweet: "SearchPost | None" = None
 
     @computed_field
     @property
@@ -185,13 +186,14 @@ class SearchAllResult(BaseModel):
         """
         Denormalize the response by joining includes data into tweets.
 
-        Call this after parsing to populate author/media on each tweet.
+        Call this after parsing to populate author/media/quoted_tweet on each tweet.
         """
         if not self.includes:
             return self
 
         users_by_id = {user.id: user for user in self.includes.users}
         media_by_key = {m.media_key: m for m in self.includes.media}
+        tweets_by_id = {tweet.id: tweet for tweet in self.includes.tweets}
 
         for tweet in self.data:
             if tweet.author_id and tweet.author_id in users_by_id:
@@ -199,5 +201,16 @@ class SearchAllResult(BaseModel):
 
             if tweet.attachments and "media_keys" in tweet.attachments:
                 tweet.media = [media_by_key[key] for key in tweet.attachments["media_keys"] if key in media_by_key]
+
+            # Hydrate quoted tweet
+            if tweet.referenced_tweets:
+                for ref in tweet.referenced_tweets:
+                    if ref.type == "quoted" and ref.id in tweets_by_id:
+                        quoted = tweets_by_id[ref.id]
+                        # Hydrate the quoted tweet's author
+                        if quoted.author_id and quoted.author_id in users_by_id:
+                            quoted.author = users_by_id[quoted.author_id]
+                        tweet.quoted_tweet = quoted
+                        break  # Only handle first quote
 
         return self

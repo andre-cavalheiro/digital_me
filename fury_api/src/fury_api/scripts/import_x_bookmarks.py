@@ -114,7 +114,7 @@ def _map_posts_to_content(
     organization_id: int,
     author_id_map: dict[str, int],
 ) -> list[Content]:
-    """Map X posts to Content objects with author_id."""
+    """Map X posts to Content objects with author_id and quote tweet data."""
     contents: list[Content] = []
     for post in posts:
         # For long-form tweets (>280 chars), use note_tweet.text; otherwise use text
@@ -128,6 +128,37 @@ def _map_posts_to_content(
             print(f"Warning: No author_id found for post {post.id}, skipping...")
             continue
 
+        # Extract quoted tweet data if this is a quote tweet
+        extra_fields = None
+        if post.is_quote and post.quoted_tweet:
+            qt = post.quoted_tweet
+            quoted_text = (qt.note_tweet.text if qt.note_tweet else qt.text) or ""
+
+            extra_fields = {
+                "quoted_tweet": {
+                    "id": qt.id,
+                    "text": quoted_text,
+                    "author": {
+                        "id": qt.author.id if qt.author else None,
+                        "name": qt.author.name if qt.author else None,
+                        "username": qt.author.username if qt.author else None,
+                        "avatar_url": qt.author.profile_image_url if qt.author else None,
+                    } if qt.author else None,
+                    "created_at": qt.created_at.isoformat() if qt.created_at else None,
+                    "url": qt.tweet_url if hasattr(qt, 'tweet_url') else None,
+                }
+            }
+
+        # Store platform metadata (keep quoted_tweet_id for reference)
+        platform_metadata = post.model_dump()
+        if post.is_quote and post.referenced_tweets:
+            quoted_ref = next(
+                (ref for ref in post.referenced_tweets if ref.type == "quoted"),
+                None
+            )
+            if quoted_ref:
+                platform_metadata["quoted_tweet_id"] = quoted_ref.id
+
         contents.append(
             Content(
                 organization_id=organization_id,
@@ -139,7 +170,8 @@ def _map_posts_to_content(
                 excerpt=excerpt,
                 published_at=post.created_at,
                 synced_at=datetime.now(timezone.utc),
-                platform_metadata=post.model_dump(),
+                platform_metadata=platform_metadata,
+                extra_fields=extra_fields,
             )
         )
     return contents
