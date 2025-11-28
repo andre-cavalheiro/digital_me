@@ -148,13 +148,8 @@ class UnitOfWork(AsyncSqlAlchemyUnitOfWork):
         from fury_api.domain.content.repository import ContentRepository
         from fury_api.domain.documents.repository import DocumentRepository, DocumentContentRepository
         from fury_api.domain.conversations.repository import ConversationRepository, MessageRepository
-        from fury_api.domain.sources.repository import (
-            SourceRepository,
-            SourceGroupRepository,
-            SourceGroupMemberRepository,
-            DocumentSourceConfigRepository,
-            CitationRepository,
-        )
+        from fury_api.domain.authors.repository import AuthorsRepository
+        from fury_api.domain.collections.repository import CollectionsRepository, ContentCollectionsRepository
 
         self.organizations = OrganizationRepository()
         self.users = UserRepository()
@@ -164,12 +159,9 @@ class UnitOfWork(AsyncSqlAlchemyUnitOfWork):
         self.document_contents = DocumentContentRepository()
         self.conversations = ConversationRepository()
         self.messages = MessageRepository()
-        self.sources = SourceRepository()
-        self.source_groups = SourceGroupRepository()
-        self.source_group_members = SourceGroupMemberRepository()
-        self.document_source_configs = DocumentSourceConfigRepository()
-        self.citations = CitationRepository()
-
+        self.authors = AuthorsRepository()
+        self.collections = CollectionsRepository()
+        self.content_collections = ContentCollectionsRepository()
         self._repos = {
             repo._model_cls: repo
             for repo in (
@@ -181,11 +173,9 @@ class UnitOfWork(AsyncSqlAlchemyUnitOfWork):
                 self.document_contents,
                 self.conversations,
                 self.messages,
-                self.sources,
-                self.source_groups,
-                self.source_group_members,
-                self.document_source_configs,
-                self.citations,
+                self.authors,
+                self.collections,
+                self.content_collections,
             )
         }
 
@@ -206,12 +196,10 @@ class UnitOfWork(AsyncSqlAlchemyUnitOfWork):
         del self.document_contents
         del self.conversations
         del self.messages
-        del self.sources
         del self.contents
-        del self.source_groups
-        del self.source_group_members
-        del self.document_source_configs
-        del self.citations
+        del self.authors
+        del self.collections
+        del self.content_collections
 
     def get_repository(self, model_cls: type[T]) -> GenericSqlExtendedRepository[T]:
         """Return the repository for the given model class."""

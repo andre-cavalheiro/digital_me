@@ -10,7 +10,8 @@ from fury_api.domain.plugins.controllers import plugin_router
 from fury_api.domain.documents.controllers import document_router
 from fury_api.domain.conversations.controllers import conversation_router
 from fury_api.domain.content.controllers import content_router
-from fury_api.domain.sources.controllers import sources_router
+from fury_api.domain.authors.controllers import authors_router
+from fury_api.domain.collections.controllers import collections_router
 
 __all__ = ["create_router"]
 
@@ -26,6 +27,7 @@ def create_router() -> APIRouter:
     router.include_router(document_router, tags=["Documents"])
     router.include_router(conversation_router, tags=["Conversations"])
     router.include_router(content_router, tags=["Content"])
-    router.include_router(sources_router, tags=["Sources"])
+    router.include_router(authors_router, tags=["Authors"])
+    router.include_router(collections_router, tags=["Collections"])
 
     return router

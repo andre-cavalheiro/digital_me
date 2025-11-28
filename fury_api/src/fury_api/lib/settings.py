@@ -321,6 +321,7 @@ class OpenAISettings(FuryBaseSettings):
     MODEL: str | None = None  # Falls back to AISettings.DEFAULT_MODEL if not set
     EMBEDDING_MODEL: str = "text-embedding-3-small"
 
+
 @dataclass(frozen=True, kw_only=True, slots=True)
 class SettingsConfig:
     server: ServerSettings

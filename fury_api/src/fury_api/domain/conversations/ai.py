@@ -59,7 +59,6 @@ def build_system_prompt(
                 {
                     "id": item.id,
                     "title": item.title,
-                    "source_id": item.source_id,
                     "external_url": item.external_url,
                 }
             )

@@ -78,12 +78,44 @@ export interface TwitterPlatformMetadata {
   [key: string]: any
 }
 
+// Author - platform-specific content creators
+export interface Author {
+  id: number
+  platform: string
+  external_id: string
+  display_name: string
+  handle: string
+  avatar_url: string
+  profile_url: string
+  bio?: string | null
+  follower_count?: number | null
+  following_count?: number | null
+  created_at: string
+  updated_at: string
+}
+
+// Collection - groups of content (bookmarks, lists, etc.)
+export interface Collection {
+  id: number
+  organization_id: number
+  type: string
+  platform: string
+  name: string
+  external_id: string
+  description?: string | null
+  collection_url?: string | null
+  last_synced_at?: string | null
+  created_at: string
+  updated_at: string
+}
+
 export interface ContentItem {
   id: number
   title: string
   summary?: string
   excerpt?: string
   author?: string
+  author_id?: number | null
   published_at?: string
   source_url?: string
   body?: string
@@ -93,14 +125,13 @@ export interface ContentItem {
 export interface ContentSearchParams {
   query: string
   limit?: number
-  source_ids?: number[]
-  source_group_ids?: number[]
 }
 
 export interface FetchContentListParams {
   cursor?: string | null
   limit?: number
-  sourceIds?: number[]
+  authorIds?: number[]
+  collectionIds?: number[]
   publishedAfter?: string
   publishedBefore?: string
   sortBy?: "published_at" | "created_at"

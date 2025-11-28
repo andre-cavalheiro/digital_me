@@ -35,10 +35,10 @@ CONTENTS_FILTERS_DEFINITION = ModelFilterAndSortDefinition(
     model=Content,
     allowed_filters={
         "id": get_default_ops_for_type(Identifier),
-        "source_id": get_default_ops_for_type(int),
+        "author_id": get_default_ops_for_type(int),
         "published_at": get_default_ops_for_type(str),
     },
-    allowed_sorts={"id", "source_id", "published_at", "synced_at", "created_at"},
+    allowed_sorts={"id", "author_id", "published_at", "synced_at", "created_at"},
 )
 
 
@@ -99,7 +99,6 @@ async def create_content_item(
     current_user: Annotated[User, Depends(get_current_user)],
 ) -> Content:
     payload = content_data.model_dump(by_alias=True, exclude_unset=True, exclude_none=True)
-    payload["organization_id"] = current_user.organization_id
     converted_content = Content.model_validate(payload)
     return await content_service.create_item(converted_content)
 
@@ -122,7 +121,6 @@ async def create_content_items(
     items: list[Content] = []
     for item in content_data.items:
         payload = item.model_dump(by_alias=True, exclude_unset=True, exclude_none=True)
-        payload["organization_id"] = current_user.organization_id
         items.append(Content.model_validate(payload))
 
     return await content_service.create_items_with_results(items)

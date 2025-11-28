@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
-import { createCitation, fetchCitations, fetchContentItem, fetchDocument, fetchDocumentContent, saveDocumentContent, updateDocumentTitle, type Citation, type ContentItem, type Document, type DocumentSection } from "@/lib/api"
+import { fetchContentItem, fetchDocument, fetchDocumentContent, saveDocumentContent, updateDocumentTitle, type ContentItem, type Document, type DocumentSection } from "@/lib/api"
 import { WorkspaceShell } from "@/components/layout/workspace-shell"
 import { SourcesPanel } from "@/components/panels/sources-panel"
 import { AssistantPanel } from "@/components/panels/assistant-panel"
@@ -27,9 +27,7 @@ export function DocumentWorkspace({ documentId }: Props) {
   const [status, setStatus] = useState<FetchState>("idle")
   const [saveState, setSaveState] = useState<SaveState>("idle")
   const [dirty, setDirty] = useState(false)
-  const [lastSavedAt, setLastSavedAt] = useState<string | null>(null)
   const [selectionText, setSelectionText] = useState<string>("")
-  const [citations, setCitations] = useState<Citation[]>([])
   const [showSources, setShowSources] = useState(true)
   const [showAssistant, setShowAssistant] = useState(true)
   const [leftWidth, setLeftWidth] = useState(320)
@@ -46,28 +44,23 @@ export function DocumentWorkspace({ documentId }: Props) {
     const load = async () => {
       setStatus("loading")
       try {
-        const [doc, docContent, docCitations] = await Promise.all([
+        const [doc, docContent] = await Promise.all([
           fetchDocument(documentId),
           fetchDocumentContent(documentId),
-          fetchCitations(documentId).catch(() => []),
         ])
         if (mounted) {
           setDocument(doc)
           setTitleValue(doc.title)
           suppressDirtyRef.current = true
           setSections(docContent)
-          setLastSavedAt(latestUpdatedAt(docContent))
-          setCitations(docCitations)
           setStatus("idle")
           setDirty(false)
 
-          // Hydrate content cache for both citations and embedded content
-          const citationContentIds = docCitations.map((c) => c.content_id)
+          // Hydrate content cache for embedded content
           const embeddedContentIds = docContent
             .map((section) => section.embedded_content_id)
             .filter((id): id is number => id !== null && id !== undefined)
-          const allContentIds = [...new Set([...citationContentIds, ...embeddedContentIds])]
-          void hydrateContentCache(allContentIds, setContentCache)
+          void hydrateContentCache(embeddedContentIds, setContentCache)
         }
       } catch (error) {
         console.error("Failed to load document", error)
@@ -110,8 +103,6 @@ export function DocumentWorkspace({ documentId }: Props) {
       suppressDirtyRef.current = true
       setSections(saved)
       setDirty(false)
-      const updatedAt = latestUpdatedAt(saved) ?? new Date().toISOString()
-      setLastSavedAt(updatedAt)
       setSaveState("idle")
     } catch (error) {
       console.error("Failed to save document", error)
@@ -132,30 +123,42 @@ export function DocumentWorkspace({ documentId }: Props) {
     setSelectionText(next.slice(0, MAX_SELECTION_CONTEXT))
   }
 
-  const handleCitationDrop = (sectionIndex: number, position: number, contentId: number) => {
-    const marker = nextMarkerNumber(citations)
-    const markerText = `[${marker}]`
-    const absolutePosition = sectionAbsolutePosition(sections, sectionIndex, position)
+  const handleCitationDrop = async (sectionIndex: number, position: number, contentId: number) => {
+    // Fetch content item to get URL and title
+    let content = contentCache[contentId]
+    if (!content) {
+      try {
+        content = await fetchContentItem(contentId)
+        setContentCache((prev) => ({ ...prev, [contentId]: content }))
+      } catch (error) {
+        console.error("Failed to fetch content for link insertion", error)
+        toast.error("Could not fetch content details")
+        return
+      }
+    }
+
+    // Extract URL (prefer source_url, fallback to tweet_url for Twitter)
+    const url = content.source_url || (content.platform_metadata as any)?.tweet_url
+    if (!url) {
+      toast.error("Content has no URL to link to")
+      return
+    }
+
+    // Create markdown link
+    const linkText = `[${content.title}](${url})`
+
+    // Insert link at drop position
     setSections((previous) => {
       const next = [...previous]
       const target = next[sectionIndex]
       if (!target) return previous
-      const { updatedContent, updatedPosition } = mergeMarkerIntoExisting(target.content, position, markerText)
+
+      const before = target.content.slice(0, position)
+      const after = target.content.slice(position)
+      const updatedContent = before + linkText + after
+
       next[sectionIndex] = { ...target, content: updatedContent }
       return next
-    })
-
-    setCitations((prev) => [...prev, { document_id: documentId, content_id: contentId, marker, position, section_index: sectionIndex }])
-    void hydrateContentCache([contentId], setContentCache)
-
-    void createCitation(documentId, {
-      content_id: contentId,
-      marker,
-      position: absolutePosition,
-      section_index: sectionIndex,
-    }).catch((error) => {
-      console.error("Failed to persist citation", error)
-      toast.error("Could not save citation. The marker will stay locally.")
     })
   }
 
@@ -187,8 +190,6 @@ export function DocumentWorkspace({ documentId }: Props) {
       suppressDirtyRef.current = true
       setSections(saved)
       setDirty(false)
-      const updatedAt = latestUpdatedAt(saved) ?? new Date().toISOString()
-      setLastSavedAt(updatedAt)
       setSaveState("idle")
     } catch (error) {
       console.error("Failed to save embedded content", error)
@@ -490,50 +491,6 @@ function sectionsWithOrder(documentId: number, sections: DocumentSection[]): Doc
     document_id: documentId,
     order_index: idx,
   }))
-}
-
-function latestUpdatedAt(sections: DocumentSection[]): string | null {
-  const timestamps = sections.map((section) => section.updated_at).filter(Boolean) as string[]
-  if (!timestamps.length) return null
-  return timestamps.sort().at(-1) ?? null
-}
-
-function nextMarkerNumber(citations: Citation[]) {
-  const currentMax = citations.reduce((max, citation) => Math.max(max, citation.marker ?? 0), 0)
-  return currentMax + 1
-}
-
-function sectionAbsolutePosition(sections: DocumentSection[], sectionIndex: number, position: number): number {
-  const beforeLength = sections
-    .slice(0, sectionIndex)
-    .reduce((total, section) => total + section.content.length + 2, 0) // account for delimiter
-  return beforeLength + position
-}
-
-function mergeMarkerIntoExisting(content: string, position: number, markerText: string) {
-  const open = content.lastIndexOf("[", position)
-  const close = content.indexOf("]", position)
-
-  if (open !== -1 && close !== -1 && close > open) {
-    const inside = content.slice(open + 1, close)
-    // If inside is digits/commas, append marker instead of nesting
-    if (/^\s*\d+(,\s*\d+)*\s*$/.test(inside)) {
-      const prefix = content.slice(0, close)
-      const suffix = content.slice(close)
-      const updatedInside = inside.trim().length ? `${inside.trim()}, ${markerText.replace(/\[|\]/g, "")}` : markerText.replace(/\[|\]/g, "")
-      return {
-        updatedContent: `${content.slice(0, open + 1)}${updatedInside}${suffix}`,
-        updatedPosition: close + markerText.length,
-      }
-    }
-  }
-
-  const before = content.slice(0, position)
-  const after = content.slice(position)
-  return {
-    updatedContent: `${before}${markerText}${after}`,
-    updatedPosition: position + markerText.length,
-  }
 }
 
 async function hydrateContentCache(ids: number[], setCache?: React.Dispatch<React.SetStateAction<Record<number, ContentItem>>>) {

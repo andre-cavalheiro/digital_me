@@ -20,12 +20,11 @@ class ServiceType(Enum):
     DOCUMENT_CONTENTS = "document_contents"
     CONVERSATIONS = "conversations"
     MESSAGES = "messages"
-    SOURCES = "sources"
+    AUTHORS = "authors"
+    COLLECTIONS = "collections"
+    CONTENT_COLLECTIONS = "content_collections"
     CONTENTS = "contents"
-    SOURCE_GROUPS = "source_groups"
-    SOURCE_GROUP_MEMBERS = "source_group_members"
-    DOCUMENT_SOURCE_CONFIGS = "document_source_configs"
-    CITATIONS = "citations"
+    # sources domain removed
 
 
 ServiceDependency = NamedTuple("ServiceDependency", [("service_type", ServiceType), ("kwargs", dict[str, Any])])
@@ -58,24 +57,9 @@ class ServiceFactory:
             class_name="ContentsService",
             dependencies={},
         ),
-        ServiceType.SOURCE_GROUPS: ServiceConfig(
-            domain="sources",
-            class_name="SourceGroupsService",
-            dependencies={},
-        ),
-        ServiceType.SOURCE_GROUP_MEMBERS: ServiceConfig(
-            domain="sources",
-            class_name="SourceGroupMembersService",
-            dependencies={},
-        ),
-        ServiceType.DOCUMENT_SOURCE_CONFIGS: ServiceConfig(
-            domain="sources",
-            class_name="DocumentSourceConfigsService",
-            dependencies={},
-        ),
-        ServiceType.CITATIONS: ServiceConfig(
-            domain="sources",
-            class_name="CitationsService",
+        ServiceType.CONTENT_COLLECTIONS: ServiceConfig(
+            domain="collections",
+            class_name="ContentCollectionsService",
             dependencies={},
         ),
     }

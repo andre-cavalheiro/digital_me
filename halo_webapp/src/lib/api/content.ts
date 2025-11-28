@@ -30,8 +30,6 @@ export async function searchContent(params: ContentSearchParams): Promise<Conten
   const payload = {
     query: params.query,
     limit: params.limit ?? 20,
-    source_ids: params.source_ids,
-    source_group_ids: params.source_group_ids,
   }
 
   return withMock(
@@ -109,7 +107,8 @@ export async function fetchContentList(params: FetchContentListParams = {}): Pro
   const {
     cursor,
     limit = 20,
-    sourceIds,
+    authorIds,
+    collectionIds,
     publishedAfter,
     publishedBefore,
     sortBy = "published_at",
@@ -133,8 +132,12 @@ export async function fetchContentList(params: FetchContentListParams = {}): Pro
   // Build filters array
   const filters: string[] = []
 
-  if (sourceIds && sourceIds.length > 0) {
-    filters.push(`source_id[in]:${sourceIds.join(",")}`)
+  if (authorIds && authorIds.length > 0) {
+    filters.push(`author_id[in]:${authorIds.join(",")}`)
+  }
+
+  if (collectionIds && collectionIds.length > 0) {
+    filters.push(`collection_id[in]:${collectionIds.join(",")}`)
   }
 
   if (publishedAfter) {

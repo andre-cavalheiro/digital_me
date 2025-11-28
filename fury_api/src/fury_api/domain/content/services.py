@@ -48,14 +48,11 @@ class ContentsService(SqlService[Content]):
         return [post.model_dump() for post in response.data] if response and response.data else []
 
     @with_uow
-    async def get_by_ids(self, ids: Sequence[int], *, organization_id: int | None = None) -> list[Content]:
+    async def get_by_ids(self, ids: Sequence[int]) -> list[Content]:
         if not ids:
             return []
 
-        query = select(self._model_cls).where(self._model_cls.id.in_(ids))
-        if organization_id is not None:
-            query = query.where(self._model_cls.organization_id == organization_id)
-        query = query.order_by(self._model_cls.id)
+        query = select(self._model_cls).where(self._model_cls.id.in_(ids)).order_by(self._model_cls.id)
         return await self.repository.list(self.session, query=query)
 
     @with_uow
@@ -72,8 +69,6 @@ class ContentsService(SqlService[Content]):
             vector_literal = sa.literal(query_vector, type_=Vector(len(query_vector)))
 
             q = select(self._model_cls).where(self._model_cls.embedding.is_not(None))
-            if self.organization_id is not None:
-                q = q.where(self._model_cls.organization_id == self.organization_id)
 
             q = q.order_by(self._model_cls.embedding.op("<->")(vector_literal)).limit(limit)
 

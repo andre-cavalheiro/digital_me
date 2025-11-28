@@ -1,6 +1,6 @@
 from fastapi import HTTPException, status
 
-__all__ = ["FuryAPIError", "FuryAPIHTTPError", "UnauthorizedError", "UnauthenticatedError"]
+__all__ = ["FuryAPIError", "FuryAPIHTTPError", "UnauthorizedError", "UnauthenticatedError", "NotFoundError"]
 
 
 class SingleValidationError:
@@ -54,3 +54,10 @@ class UnauthenticatedError(FuryAPIHTTPError):
 
     def __init__(self, **kwargs):
         super().__init__(status_code=status.HTTP_403_FORBIDDEN, detail="Requires authentication", **kwargs)
+
+
+class NotFoundError(FuryAPIHTTPError):
+    """Exception type for missing resources."""
+
+    def __init__(self, detail: str = "Not found", **kwargs):
+        super().__init__(status_code=status.HTTP_404_NOT_FOUND, detail=detail, **kwargs)

@@ -29,13 +29,12 @@ class Content(ContentBase, BigIntIDModel, table=True):
     __tablename__: str = "content"
     __id_attr__ = "id"
 
-    __table_args__ = (sa.UniqueConstraint("source_id", "external_id", name="uq_content_source_external"),)
+    __table_args__ = (sa.UniqueConstraint("external_id", name="uq_content_external_id"),)
 
     id: int | None = Field(
         default=None, primary_key=True, sa_type=sa.BigInteger, sa_column_kwargs={"autoincrement": True}
     )
-    organization_id: int = Field(sa_type=sa.BigInteger, foreign_key="organization.id", nullable=False)
-    source_id: int = Field(sa_type=sa.BigInteger, foreign_key="source.id", nullable=False)
+    author_id: int | None = Field(default=None, sa_type=sa.BigInteger, foreign_key="author.id", nullable=True)
     external_id: str = Field(nullable=False)
     external_url: str | None = Field(default=None, nullable=True)
     title: str | None = Field(default=None, nullable=True)
@@ -56,14 +55,13 @@ class ContentRead(ContentBase):
     model_config = ConfigDict(extra="ignore")
 
     id: int
-    organization_id: int
-    source_id: int
+    author_id: int | None
     created_at: datetime
     updated_at: datetime
 
 
 class ContentCreate(ContentBase):
-    source_id: int = Field()
+    author_id: Optional[int] = None
     external_id: str = Field()
     body: str = Field()
     external_url: Optional[str] = None

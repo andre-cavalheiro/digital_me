@@ -280,16 +280,12 @@ async def create_message(
     )
 
     sections = (
-        await document_content_service.get_by_ids(
-            context_sources.section_ids, document_id=conversation.document_id
-        )
+        await document_content_service.get_by_ids(context_sources.section_ids, document_id=conversation.document_id)
         if context_sources and context_sources.section_ids
         else []
     )
     contents = (
-        await content_service.get_by_ids(
-            context_sources.content_ids, organization_id=current_user.organization_id
-        )
+        await content_service.get_by_ids(context_sources.content_ids)
         if context_sources and context_sources.content_ids
         else []
     )

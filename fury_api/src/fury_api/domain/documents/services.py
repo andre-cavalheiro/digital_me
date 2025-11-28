@@ -47,7 +47,9 @@ class DocumentContentsService(SqlService[DocumentContent]):
         return await self.repository.list(self.session, query=query)
 
     @with_uow
-    async def replace_sections(self, document_id: int, sections: Sequence[DocumentContentCreate]) -> list[DocumentContent]:
+    async def replace_sections(
+        self, document_id: int, sections: Sequence[DocumentContentCreate]
+    ) -> list[DocumentContent]:
         # Normalize and rebuild sections for the document
         ordered_sections = []
         for idx, section in enumerate(sections):
@@ -65,9 +67,7 @@ class DocumentContentsService(SqlService[DocumentContent]):
         return ordered_sections
 
     @with_uow
-    async def get_by_ids(
-        self, ids: Sequence[int], *, document_id: int | None = None
-    ) -> list[DocumentContent]:
+    async def get_by_ids(self, ids: Sequence[int], *, document_id: int | None = None) -> list[DocumentContent]:
         if not ids:
             return []
 
