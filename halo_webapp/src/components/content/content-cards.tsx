@@ -1,5 +1,6 @@
 "use client"
 
+import { useState } from "react"
 import Image from "next/image"
 import { ExternalLink } from "lucide-react"
 import type { ContentItem, TwitterPlatformMetadata } from "@/lib/api"
@@ -11,11 +12,16 @@ type TweetCardProps = {
   metadata: TwitterPlatformMetadata
 }
 
+const TWEET_COLLAPSE_THRESHOLD = 280 // Characters before showing "Show more"
+
 export function TweetCard({ item, metadata }: TweetCardProps) {
   const { author } = metadata
   const tweetText = metadata.note_tweet?.text || item.body || metadata.text
   const entities = metadata.note_tweet?.entities || metadata.entities
   const tweetUrl = metadata.tweet_url || `https://twitter.com/${author.username}/status/${metadata.id}`
+
+  const [isExpanded, setIsExpanded] = useState(false)
+  const isLongTweet = tweetText.length > TWEET_COLLAPSE_THRESHOLD
 
   const handleExternalLink = (e: React.MouseEvent) => {
     e.stopPropagation()
@@ -59,7 +65,7 @@ export function TweetCard({ item, metadata }: TweetCardProps) {
         </div>
 
         {/* Tweet content */}
-        <div className="min-w-0 flex-1">
+        <div className="min-w-0 flex-1 overflow-hidden">
           {/* Author info */}
           <div className="flex items-start gap-1">
             <span className="truncate font-semibold text-sm leading-tight text-slate-900">
@@ -74,9 +80,26 @@ export function TweetCard({ item, metadata }: TweetCardProps) {
           </div>
 
           {/* Tweet text */}
-          <p className="mt-1 whitespace-pre-wrap break-words text-sm leading-relaxed text-slate-900">
-            {formatTweetText(tweetText, entities)}
-          </p>
+          <div className="mt-1">
+            <p
+              className={`whitespace-pre-wrap break-words text-sm leading-relaxed text-slate-900 ${
+                isLongTweet && !isExpanded ? "line-clamp-4" : ""
+              }`}
+            >
+              {formatTweetText(tweetText, entities)}
+            </p>
+            {isLongTweet && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation()
+                  setIsExpanded(!isExpanded)
+                }}
+                className="mt-1 text-xs font-medium text-sky-600 hover:text-sky-700 hover:underline"
+              >
+                {isExpanded ? "Show less" : "Show more"}
+              </button>
+            )}
+          </div>
 
           {/* Metrics */}
           {metadata.public_metrics && (
