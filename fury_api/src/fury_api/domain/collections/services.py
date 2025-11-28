@@ -34,6 +34,17 @@ class CollectionsService(SqlService[Collection]):
             self.session, organization_id=self.organization_id, platform=platform, name=name
         )
 
+    @with_uow
+    async def get_by_platform_external_id(
+        self,
+        *,
+        platform: str,
+        external_id: str,
+    ) -> Collection | None:
+        return await self.repository.get_by_platform_external_id(
+            self.session, organization_id=self.organization_id, platform=platform, external_id=external_id
+        )
+
 
 class ContentCollectionsService(SqlService[ContentCollection]):
     """Service for managing content-collection relationships."""
@@ -118,7 +129,7 @@ class ContentCollectionsService(SqlService[ContentCollection]):
         if not link:
             return False
 
-        await self.delete_item(link.id)
+        await self.repository.delete(self.session, link.id)
         return True
 
     async def get_collections_for_content(self, content_id: int) -> list[int]:

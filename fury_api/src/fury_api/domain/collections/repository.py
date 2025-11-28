@@ -22,6 +22,17 @@ class CollectionsRepository(GenericSqlExtendedRepository[Collection]):
         result = await session.exec(q)
         return result.scalar_one_or_none()
 
+    async def get_by_platform_external_id(
+        self, session: AsyncSession, *, organization_id: int, platform: str, external_id: str
+    ) -> Collection | None:
+        q = select(self._model_cls).where(
+            self._model_cls.organization_id == organization_id,
+            self._model_cls.platform == platform,
+            self._model_cls.external_id == external_id,
+        )
+        result = await session.exec(q)
+        return result.scalar_one_or_none()
+
 
 class ContentCollectionsRepository(GenericSqlExtendedRepository[ContentCollection]):
     def __init__(self) -> None:

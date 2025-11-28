@@ -8,17 +8,81 @@ than using application-level credentials from settings.
 
 from __future__ import annotations
 
+import asyncio
+import contextlib
+import time
 from typing import Any, Awaitable, Callable, Optional
 from datetime import datetime, timedelta
 
 import httpx
+from pydantic import BaseModel, ConfigDict, Field
 
 from fury_api.lib.settings import config
 from fury_api.lib.integrations.base import BaseHTTPClient
 from fury_api.lib.integrations.x_app.client import XAppClient
 from fury_api.lib.integrations.x_app.models import SearchAllResult
 
-__all__ = ["XUserClient", "get_x_user_client"]
+__all__ = [
+    "XUserClient",
+    "get_x_user_client",
+    "BookmarkFolder",
+    "BookmarkFoldersResult",
+    "BookmarkId",
+    "BookmarkIdsResult",
+    "BookmarkIdsMeta",
+]
+
+
+class BookmarkFolder(BaseModel):
+    """Representation of an X bookmark folder."""
+
+    model_config = ConfigDict(extra="allow", populate_by_name=True)
+
+    id: str
+    name: str
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
+    bookmark_count: int | None = Field(default=None, alias="bookmark_count")
+    total_bookmarks: int | None = Field(default=None, alias="total_bookmarks")
+
+
+class BookmarkFoldersMeta(BaseModel):
+    """Pagination metadata for bookmark folders."""
+
+    model_config = ConfigDict(extra="allow")
+
+    result_count: int | None = None
+    next_token: str | None = None
+
+
+class BookmarkFoldersResult(BaseModel):
+    """Structured response for bookmark folders."""
+
+    model_config = ConfigDict(extra="allow")
+
+    data: list[BookmarkFolder] = Field(default_factory=list)
+    meta: BookmarkFoldersMeta | None = None
+
+
+class BookmarkId(BaseModel):
+    """Lightweight bookmark representation returned by folder listing."""
+
+    model_config = ConfigDict(extra="allow")
+
+    id: str
+
+
+class BookmarkIdsMeta(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    next_token: str | None = None
+
+
+class BookmarkIdsResult(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    data: list[BookmarkId] = Field(default_factory=list)
+    meta: BookmarkIdsMeta | None = None
 
 
 class XUserClient(BaseHTTPClient):
@@ -42,6 +106,8 @@ class XUserClient(BaseHTTPClient):
         on_tokens_refreshed: Callable[[str, str], Awaitable[None]] | None = None,
         timeout: float = 30.0,
         http_client: Optional[httpx.AsyncClient] = None,
+        max_retries: int = 5,
+        backoff_base: float = 2.0,
     ):
         """
         Initialize X User API client.
@@ -73,6 +139,8 @@ class XUserClient(BaseHTTPClient):
         )
         self._on_tokens_refreshed = on_tokens_refreshed
         self._timeout = timeout
+        self._max_retries = max_retries
+        self._backoff_base = backoff_base
 
         # Validate we have at least one way to authenticate
         if not self._access_token and not self._refresh_token:
@@ -217,19 +285,96 @@ class XUserClient(BaseHTTPClient):
             "Content-Type": "application/json",
         }
 
+    async def _maybe_sleep_for_rate_limit(self, response: httpx.Response, attempt: int) -> bool:
+        """Sleep according to X rate limit headers or retry-after. Returns True if a sleep was performed."""
+        retry_after: float | None = None
+        if response.headers.get("retry-after"):
+            with contextlib.suppress(Exception):
+                retry_after = float(response.headers["retry-after"])
+
+        reset_at: float | None = None
+        remaining: int | None = None
+        if response.headers.get("x-rate-limit-reset"):
+            with contextlib.suppress(Exception):
+                reset_at = float(response.headers["x-rate-limit-reset"])
+        if response.headers.get("x-rate-limit-remaining"):
+            with contextlib.suppress(Exception):
+                remaining = int(response.headers["x-rate-limit-remaining"])
+
+        now = time.time()
+        wait_seconds: float | None = None
+        if remaining is not None and remaining <= 0 and reset_at:
+            wait_seconds = max(reset_at - now, 1.0)
+        elif retry_after is not None:
+            wait_seconds = max(retry_after, 1.0)
+
+        if wait_seconds is None:
+            # Fallback exponential backoff
+            wait_seconds = min(self._backoff_base**attempt, 60.0)
+
+        print(f"Rate limit hit, sleeping for {wait_seconds:.1f}s before retrying...")
+        await asyncio.sleep(wait_seconds)
+        return True
+
+    async def _request_with_retry(
+        self, method: str, endpoint: str, params: dict[str, Any] | None = None, json: Any = None
+    ) -> httpx.Response:
+        """Make an HTTP request with X rate-limit aware retries."""
+        url = f"{self._base_url.rstrip('/')}/{endpoint.lstrip('/')}"
+        attempt = 0
+        last_exc: Exception | None = None
+
+        while attempt <= self._max_retries:
+            # Ensure we have a valid access token before making the request
+            await self._ensure_valid_access_token()
+            try:
+                response = await self._http_client.request(method, url, params=params, json=json, follow_redirects=True)
+                if response.status_code == 429:
+                    attempt += 1
+                    await self._maybe_sleep_for_rate_limit(response, attempt)
+                    continue
+                if 500 <= response.status_code < 600:
+                    attempt += 1
+                    backoff = min(self._backoff_base**attempt, 60.0)
+                    print(f"Server error {response.status_code}, retrying in {backoff:.1f}s...")
+                    await asyncio.sleep(backoff)
+                    continue
+                response.raise_for_status()
+                return response
+            except httpx.HTTPStatusError as exc:
+                last_exc = exc
+                if exc.response.status_code == 429:
+                    attempt += 1
+                    await self._maybe_sleep_for_rate_limit(exc.response, attempt)
+                    continue
+                if 500 <= exc.response.status_code < 600 and attempt < self._max_retries:
+                    attempt += 1
+                    backoff = min(self._backoff_base**attempt, 60.0)
+                    print(f"Server error {exc.response.status_code}, retrying in {backoff:.1f}s...")
+                    await asyncio.sleep(backoff)
+                    continue
+                raise
+            except httpx.HTTPError as exc:
+                last_exc = exc
+                if attempt >= self._max_retries:
+                    raise
+                attempt += 1
+                backoff = min(self._backoff_base**attempt, 60.0)
+                print(f"HTTP error {exc}, retrying in {backoff:.1f}s...")
+                await asyncio.sleep(backoff)
+                continue
+
+        if last_exc:
+            raise last_exc
+        raise RuntimeError("Request failed without exception but no response returned.")
+
     async def _make_request(
         self, method: str, endpoint: str, params: dict[str, Any] | None = None, json: Any = None
     ) -> dict[str, Any]:
         """
-        Make an HTTP request to the X User API.
-        Automatically refreshes access token if expired.
+        Make an HTTP request to the X User API with retries.
         """
-        # Ensure we have a valid access token before making the request
-        await self._ensure_valid_access_token()
-
-        url = f"{self._base_url.rstrip('/')}/{endpoint.lstrip('/')}"
-        response = await self._http_client.request(method, url, params=params, json=json, follow_redirects=True)
-        response.raise_for_status()
+        response = await self._request_with_retry(method, endpoint, params=params, json=json)
         if response.status_code == 204:
             return {}
         return response.json()
@@ -274,6 +419,98 @@ class XUserClient(BaseHTTPClient):
         response = await self._make_request(
             "GET",
             f"users/{user_id}/bookmarks",
+            params=filtered_params,
+        )
+
+        result = SearchAllResult.model_validate(response)
+        if hydrate:
+            result.hydrate()
+        return result
+
+    async def get_bookmark_folders(
+        self,
+        *,
+        user_id: str,
+        pagination_token: str | None = None,
+        max_results: int | None = None,
+    ) -> BookmarkFoldersResult:
+        """
+        Fetch bookmark folders for a user.
+        """
+        params: dict[str, Any] = {
+            "pagination_token": pagination_token,
+            "max_results": max_results,
+        }
+        filtered_params = {k: v for k, v in params.items() if v is not None}
+
+        response = await self._make_request(
+            "GET",
+            f"users/{user_id}/bookmarks/folders",
+            params=filtered_params,
+        )
+        return BookmarkFoldersResult.model_validate(response)
+
+    async def get_bookmarks_by_folder(
+        self,
+        *,
+        user_id: str,
+        folder_id: str,
+        pagination_token: str | None = None,
+    ) -> BookmarkIdsResult:
+        """
+        Fetch bookmarks that belong to a specific folder.
+
+        Note: This endpoint only returns bookmark IDs; no expansions/fields are accepted.
+        """
+
+        params: dict[str, Any] = {
+            "pagination_token": pagination_token,
+        }
+        filtered_params = {k: v for k, v in params.items() if v is not None}
+
+        response = await self._make_request(
+            "GET",
+            f"users/{user_id}/bookmarks/folders/{folder_id}",
+            params=filtered_params,
+        )
+
+        return BookmarkIdsResult.model_validate(response)
+
+    async def get_tweets_by_ids(
+        self,
+        *,
+        ids: list[str],
+        expansions: list[str] | None = None,
+        tweet_fields: list[str] | None = None,
+        user_fields: list[str] | None = None,
+        media_fields: list[str] | None = None,
+        poll_fields: list[str] | None = None,
+        place_fields: list[str] | None = None,
+        hydrate: bool = True,
+    ) -> SearchAllResult:
+        """
+        Fetch tweets by IDs using the user token.
+        """
+        if not ids:
+            raise ValueError("ids must not be empty")
+
+        def to_comma_separated(value: list[str] | None) -> str | None:
+            return ",".join(value) if value else None
+
+        params: dict[str, Any] = {
+            "ids": ",".join(ids),
+            "expansions": to_comma_separated(expansions or XAppClient.DEFAULT_EXPANSIONS),
+            "tweet.fields": to_comma_separated(tweet_fields or XAppClient.DEFAULT_TWEET_FIELDS),
+            "user.fields": to_comma_separated(user_fields or XAppClient.DEFAULT_USER_FIELDS),
+            "media.fields": to_comma_separated(media_fields or XAppClient.DEFAULT_MEDIA_FIELDS),
+            "poll.fields": to_comma_separated(poll_fields) if poll_fields else None,
+            "place.fields": to_comma_separated(place_fields) if place_fields else None,
+        }
+        filtered_params = {k: v for k, v in params.items() if v is not None}
+
+        response = await self._make_request(
+            "GET",
+            "tweets",
             params=filtered_params,
         )
 

@@ -166,3 +166,12 @@ class ContentsService(SqlService[Content]):
             created=created,
             failed=failed,
         )
+
+    @with_uow
+    async def get_by_external_ids(self, external_ids: Sequence[str]) -> list[Content]:
+        """Fetch contents by external IDs."""
+        if not external_ids:
+            return []
+
+        query = select(self._model_cls).where(self._model_cls.external_id.in_(external_ids))
+        return await self.repository.list(self.session, query=query)
