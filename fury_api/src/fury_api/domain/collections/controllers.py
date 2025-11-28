@@ -26,9 +26,9 @@ COLLECTIONS_FILTERS_DEFINITION = ModelFilterAndSortDefinition(
     allowed_filters={
         "id": get_default_ops_for_type(Identifier),
         "platform_type": get_default_ops_for_type(str),
-        "display_name": get_default_ops_for_type(str),
+        "name": get_default_ops_for_type(str),
     },
-    allowed_sorts={"id", "platform_type", "display_name", "created_at"},
+    allowed_sorts={"id", "platform_type", "name", "created_at"},
 )
 
 

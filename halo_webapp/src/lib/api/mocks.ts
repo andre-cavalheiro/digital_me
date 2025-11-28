@@ -72,6 +72,7 @@ export const mockContentItems: ContentItem[] = [
     published_at: "2024-01-03T09:00:00Z",
     source_url: "https://example.com/future-of-work",
     platform_metadata: undefined,
+    extra_fields: null,
     body: undefined,
   },
   {
@@ -84,6 +85,7 @@ export const mockContentItems: ContentItem[] = [
     published_at: "2024-01-02T10:00:00Z",
     source_url: "https://example.com/curation",
     platform_metadata: undefined,
+    extra_fields: null,
     body: undefined,
   },
   {
@@ -96,6 +98,7 @@ export const mockContentItems: ContentItem[] = [
     published_at: "2024-01-01T08:00:00Z",
     source_url: "https://example.com/adapting-ai",
     platform_metadata: undefined,
+    extra_fields: null,
     body: undefined,
   },
 ]
