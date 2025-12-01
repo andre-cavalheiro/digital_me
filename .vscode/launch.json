@@ -4,7 +4,7 @@
     // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
     "version": "0.2.0",
     "configurations": [
-        {
+         {
             "name": "Script: import_x_bookmarks",
             "type": "debugpy",
             "request": "launch",
@@ -12,12 +12,27 @@
             "args": [
                 "--organization-id",
                 "1",
-                "--user-id",
-                "1",
                 "--plugin-id",
                 "29",
                 "--max-results",
-                "20"
+                "50",
+                "--fetch-all",
+            ],
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}/fury_api",
+            "python": "${workspaceFolder}/fury_api/.venv/bin/python",
+            "justMyCode": false
+        },
+        {
+            "name": "Script: import_author_tweets",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/fury_api/src/fury_api/scripts/import_author_tweets.py",
+            "args": [
+                "--username",
+                "cavi_jointleman",
+                "--total-tweets",
+                "50",
             ],
             "console": "integratedTerminal",
             "cwd": "${workspaceFolder}/fury_api",

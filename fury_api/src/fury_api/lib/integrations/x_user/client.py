@@ -519,6 +519,87 @@ class XUserClient(BaseHTTPClient):
             result.hydrate()
         return result
 
+    async def get_posts(
+        self,
+        *,
+        user_id: str,
+        start_time: str | None = None,
+        end_time: str | None = None,
+        since_id: str | None = None,
+        until_id: str | None = None,
+        max_results: int | None = None,
+        next_token: str | None = None,
+        pagination_token: str | None = None,
+        tweet_fields: list[str] | None = None,
+        expansions: list[str] | None = None,
+        user_fields: list[str] | None = None,
+        media_fields: list[str] | None = None,
+        poll_fields: list[str] | None = None,
+        place_fields: list[str] | None = None,
+        exclude: list[str] | None = None,
+        hydrate: bool = True,
+    ) -> SearchAllResult:
+        """
+        Fetch posts authored by a specific user.
+
+        Uses the same default tweet/user/media fields as the X App search
+        integration to keep display data consistent. Method signature mirrors
+        XAppClient.search_all() for interface consistency.
+
+        Args:
+            user_id: The user ID whose posts to retrieve.
+            start_time: Oldest UTC timestamp (RFC3339 format).
+            end_time: Newest UTC timestamp (RFC3339 format).
+            since_id: Returns results with ID greater than this.
+            until_id: Returns results with ID less than this.
+            max_results: Maximum number of results per page (5-100).
+            next_token: Pagination token (alternative to pagination_token).
+            pagination_token: Pagination token for next page.
+            tweet_fields: List of tweet fields to include.
+            expansions: List of expansion fields.
+            user_fields: List of user fields to include.
+            media_fields: List of media fields to include.
+            poll_fields: List of poll fields to include.
+            place_fields: List of place fields to include.
+            exclude: Types to exclude (e.g. ["replies", "retweets"]).
+            hydrate: Whether to denormalize includes into tweets.
+
+        Returns:
+            SearchAllResult with tweets, includes, and metadata.
+        """
+
+        # X API expects comma-separated strings, not lists
+        def to_comma_separated(value: list[str] | None) -> str | None:
+            return ",".join(value) if value else None
+
+        params: dict[str, Any] = {
+            "pagination_token": pagination_token or next_token,
+            "max_results": max_results,
+            "start_time": start_time,
+            "end_time": end_time,
+            "since_id": since_id,
+            "until_id": until_id,
+            "exclude": to_comma_separated(exclude),
+            "expansions": to_comma_separated(expansions or XAppClient.DEFAULT_EXPANSIONS),
+            "tweet.fields": to_comma_separated(tweet_fields or XAppClient.DEFAULT_TWEET_FIELDS),
+            "user.fields": to_comma_separated(user_fields or XAppClient.DEFAULT_USER_FIELDS),
+            "media.fields": to_comma_separated(media_fields or XAppClient.DEFAULT_MEDIA_FIELDS),
+            "poll.fields": to_comma_separated(poll_fields) if poll_fields else None,
+            "place.fields": to_comma_separated(place_fields) if place_fields else None,
+        }
+        filtered_params = {k: v for k, v in params.items() if v is not None}
+
+        response = await self._make_request(
+            "GET",
+            f"users/{user_id}/tweets",
+            params=filtered_params,
+        )
+
+        result = SearchAllResult.model_validate(response)
+        if hydrate:
+            result.hydrate()
+        return result
+
 
 def get_x_user_client(
     *,

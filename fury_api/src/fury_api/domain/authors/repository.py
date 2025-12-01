@@ -18,3 +18,12 @@ class AuthorsRepository(GenericSqlExtendedRepository[Author]):
         )
         result = await session.exec(q)
         return result.scalar_one_or_none()
+
+    async def get_by_platform_handle(self, session: AsyncSession, *, platform: str, handle: str) -> Author | None:
+        """Get author by platform and handle (username)."""
+        q = select(self._model_cls).where(
+            self._model_cls.platform == platform,
+            self._model_cls.handle == handle,
+        )
+        result = await session.exec(q)
+        return result.scalar_one_or_none()

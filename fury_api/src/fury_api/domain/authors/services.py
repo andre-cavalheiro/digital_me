@@ -26,3 +26,13 @@ class AuthorsService(SqlService[Author]):
         external_id: str,
     ) -> Author | None:
         return await self.repository.get_by_platform_id(self.session, platform=platform, external_id=external_id)
+
+    @with_uow
+    async def get_by_platform_handle(
+        self,
+        *,
+        platform: str,
+        handle: str,
+    ) -> Author | None:
+        """Get author by platform and handle (username)."""
+        return await self.repository.get_by_platform_handle(self.session, platform=platform, handle=handle)
