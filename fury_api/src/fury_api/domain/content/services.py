@@ -11,6 +11,7 @@ from fury_api.domain.users.models import User
 from fury_api.lib.service import SqlService, with_uow
 from fury_api.lib.integrations.base_ai import BaseAIClient
 from fury_api.lib.factories.integrations_factory import IntegrationsFactory
+from fury_api.lib.model_filters import Filter
 
 if TYPE_CHECKING:
     from fury_api.lib.integrations import XAppClient
@@ -61,6 +62,7 @@ class ContentsService(SqlService[Content]):
         search: ContentSearchRequest,
         *,
         ai_client: BaseAIClient | None = None,
+        model_filters: list[Filter] | None = None,
     ) -> list[Content]:
         limit = search.limit or 20
 
@@ -69,6 +71,10 @@ class ContentsService(SqlService[Content]):
             vector_literal = sa.literal(query_vector, type_=Vector(len(query_vector)))
 
             q = select(self._model_cls).where(self._model_cls.embedding.is_not(None))
+
+            # Apply filters if provided
+            if model_filters:
+                q = self._apply_filters_to_semantic_query(q, model_filters)
 
             q = q.order_by(self._model_cls.embedding.op("<->")(vector_literal)).limit(limit)
 
@@ -80,6 +86,64 @@ class ContentsService(SqlService[Content]):
 
         async with IntegrationsFactory.get_ai_client() as client:
             return await _run(client)
+
+    def _apply_filters_to_semantic_query(self, query: select, filters: list[Filter]) -> select:
+        """
+        Apply model filters to the semantic search query.
+
+        Handles special case for collection_id which requires filtering
+        via the ContentCollection junction table. Direct Content filters
+        (like author_id) are applied using the repository's filter adapter.
+
+        Args:
+            query: Base SQLAlchemy select query
+            filters: List of Filter objects to apply
+
+        Returns:
+            Modified query with filters applied
+        """
+        from fury_api.domain.collections.models import ContentCollection
+        from fury_api.lib.model_filters import FilterOp
+
+        # Separate collection filters from direct Content filters
+        collection_filters = []
+        content_filters = []
+
+        for filter_ in filters:
+            if filter_.field == "collection_id":
+                collection_filters.append(filter_)
+            else:
+                content_filters.append(filter_)
+
+        # Apply direct Content filters using repository's filter adapter
+        if content_filters:
+            query = self.repository._apply_model_filters(query, content_filters)
+
+        # Handle collection filters with subquery
+        if collection_filters:
+            for filter_ in collection_filters:
+                # Build subquery to find content_ids in matching collections
+                subquery = (
+                    select(ContentCollection.content_id)
+                    .where(ContentCollection.organization_id == self.organization_id)
+                )
+
+                # Apply filter operation to collection_id
+                if filter_.op == FilterOp.EQ:
+                    subquery = subquery.where(ContentCollection.collection_id == filter_.value)
+                elif filter_.op == FilterOp.IN:
+                    values = filter_.value if isinstance(filter_.value, list) else [filter_.value]
+                    subquery = subquery.where(ContentCollection.collection_id.in_(values))
+                elif filter_.op == FilterOp.NEQ:
+                    subquery = subquery.where(ContentCollection.collection_id != filter_.value)
+                elif filter_.op == FilterOp.NOT_IN:
+                    values = filter_.value if isinstance(filter_.value, list) else [filter_.value]
+                    subquery = subquery.where(~ContentCollection.collection_id.in_(values))
+
+                # Apply subquery filter to main query
+                query = query.where(self._model_cls.id.in_(subquery))
+
+        return query
 
     def _prepare_embedding_text(self, content: Content) -> str:
         """

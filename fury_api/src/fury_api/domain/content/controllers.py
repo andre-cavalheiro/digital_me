@@ -37,6 +37,7 @@ CONTENTS_FILTERS_DEFINITION = ModelFilterAndSortDefinition(
         "id": get_default_ops_for_type(Identifier),
         "author_id": get_default_ops_for_type(int),
         "published_at": get_default_ops_for_type(str),
+        "collection_id": get_default_ops_for_type(int),
     },
     allowed_sorts={"id", "author_id", "published_at", "synced_at", "created_at"},
 )
@@ -158,5 +159,8 @@ async def search_content(
         ),
     ],
     ai_client: Annotated[BaseAIClient, Depends(get_ai_client)],
+    filters_parser: Annotated[
+        FiltersAndSortsParser, Depends(get_models_filters_parser_factory(CONTENTS_FILTERS_DEFINITION))
+    ],
 ) -> list[ContentRead]:
-    return await content_service.semantic_search(search, ai_client=ai_client)
+    return await content_service.semantic_search(search, ai_client=ai_client, model_filters=filters_parser.filters)
