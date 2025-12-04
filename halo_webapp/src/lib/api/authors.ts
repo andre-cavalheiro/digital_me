@@ -101,6 +101,7 @@ export interface FetchAuthorsWithCountParams {
   size?: number
   cursor?: string | null
   platform?: string
+  search?: string
   sortBy?: "id" | "platform" | "display_name" | "created_at"
   sortOrder?: "asc" | "desc"
   includeTotal?: boolean
@@ -115,7 +116,7 @@ export interface AuthorsListResponse {
 export async function fetchAuthorsWithContentCount(
   params: FetchAuthorsWithCountParams = {},
 ): Promise<AuthorsListResponse> {
-  const { size = 20, cursor, platform, sortBy = "display_name", sortOrder = "asc", includeTotal = false } = params
+  const { size = 20, cursor, platform, search, sortBy = "display_name", sortOrder = "asc", includeTotal = false } = params
 
   return withMock(
     {
@@ -139,8 +140,16 @@ export async function fetchAuthorsWithContentCount(
         queryParams.includeTotal = "true"
       }
 
+      // Build filters array
+      const filters: string[] = []
       if (platform) {
-        queryParams.filters = `platform[eq]:${platform}`
+        filters.push(`platform:eq:${platform}`)
+      }
+      if (search) {
+        filters.push(`handle:ilike:%${search}%`)
+      }
+      if (filters.length > 0) {
+        queryParams.filters = filters
       }
 
       queryParams.sorts = `${sortBy}:${sortOrder}`
@@ -156,6 +165,35 @@ export async function fetchAuthorsWithContentCount(
         nextCursor: parsed.next_page || null,
         total: parsed.total !== undefined ? parsed.total : null,
       }
+    },
+  )
+}
+
+/**
+ * Fetch authors by their IDs
+ * Used to ensure previously selected authors are loaded even if not in first page
+ */
+export async function fetchAuthorsByIds(ids: number[]): Promise<AuthorWithContentCount[]> {
+  if (ids.length === 0) return []
+
+  return withMock(
+    mockAuthors.filter((a) => ids.includes(a.id)).map((author) => ({
+      ...author,
+      content_count: Math.floor(Math.random() * 100) + 1,
+    })),
+    async () => {
+      const queryParams: Record<string, any> = {
+        size: String(ids.length),
+        filters: `id:in:${ids.join(",")}`,
+      }
+
+      const response = await api.get("/authors", {
+        params: queryParams,
+      })
+      const paginatedSchema = paginatedResponseSchema(authorSchema)
+      const parsed = paginatedSchema.parse(response.data)
+
+      return parsed.items
     },
   )
 }

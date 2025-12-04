@@ -8,10 +8,14 @@ import { handleApiError } from "./errors"
  * - Includes Firebase authentication token in requests
  * - Has 45 second timeout
  * - Handles errors with typed error handling
+ * - Serializes arrays without brackets (filters=a&filters=b instead of filters[]=a&filters[]=b)
  */
 export const api = axios.create({
   baseURL: env.NEXT_PUBLIC_API_URL,
   timeout: 45000, // 45 seconds timeout
+  paramsSerializer: {
+    indexes: null, // Serialize arrays without brackets: arr=1&arr=2 instead of arr[]=1&arr[]=2
+  },
 })
 
 // Request interceptor: Include Firebase token in each request

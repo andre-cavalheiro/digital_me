@@ -89,7 +89,7 @@ export async function fetchCollections(params: FetchCollectionsParams = {}): Pro
   }
 
   if (filters.length > 0) {
-    queryParams.filters = filters.join("&filters=")
+    queryParams.filters = filters
   }
 
   queryParams.sorts = `${sortBy}:${sortOrder}`
@@ -120,6 +120,7 @@ export interface FetchCollectionsWithCountParams {
   size?: number
   cursor?: string | null
   platformType?: string
+  search?: string
   sortBy?: "id" | "platform_type" | "name" | "created_at"
   sortOrder?: "asc" | "desc"
   includeTotal?: boolean
@@ -134,7 +135,7 @@ export interface CollectionsListResponse {
 export async function fetchCollectionsWithContentCount(
   params: FetchCollectionsWithCountParams = {},
 ): Promise<CollectionsListResponse> {
-  const { size = 20, cursor, platformType, sortBy = "name", sortOrder = "asc", includeTotal = false } = params
+  const { size = 20, cursor, platformType, search, sortBy = "name", sortOrder = "asc", includeTotal = false } = params
 
   return withMock(
     {
@@ -158,8 +159,16 @@ export async function fetchCollectionsWithContentCount(
         queryParams.includeTotal = "true"
       }
 
+      // Build filters array
+      const filters: string[] = []
       if (platformType) {
-        queryParams.filters = `platform_type[eq]:${platformType}`
+        filters.push(`platform_type:eq:${platformType}`)
+      }
+      if (search) {
+        filters.push(`name:ilike:%${search}%`)
+      }
+      if (filters.length > 0) {
+        queryParams.filters = filters
       }
 
       queryParams.sorts = `${sortBy}:${sortOrder}`
@@ -175,6 +184,35 @@ export async function fetchCollectionsWithContentCount(
         nextCursor: parsed.next_page || null,
         total: parsed.total !== undefined ? parsed.total : null,
       }
+    },
+  )
+}
+
+/**
+ * Fetch collections by their IDs
+ * Used to ensure previously selected collections are loaded even if not in first page
+ */
+export async function fetchCollectionsByIds(ids: number[]): Promise<CollectionWithContentCount[]> {
+  if (ids.length === 0) return []
+
+  return withMock(
+    mockCollections.filter((c) => ids.includes(c.id)).map((collection) => ({
+      ...collection,
+      content_count: Math.floor(Math.random() * 50) + 1,
+    })),
+    async () => {
+      const queryParams: Record<string, any> = {
+        size: String(ids.length),
+        filters: `id:in:${ids.join(",")}`,
+      }
+
+      const response = await api.get("/collections", {
+        params: queryParams,
+      })
+      const paginatedSchema = paginatedResponseSchema(collectionSchema)
+      const parsed = paginatedSchema.parse(response.data)
+
+      return parsed.items
     },
   )
 }

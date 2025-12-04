@@ -1,12 +1,22 @@
 "use client"
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
-import { RefreshCcw, Search } from "lucide-react"
-import { searchContent, type ContentItem, type TwitterPlatformMetadata } from "@/lib/api"
+import { RefreshCcw, Search, Sliders } from "lucide-react"
+import { searchContent, type ContentItem, type TwitterPlatformMetadata, type Author, type Collection } from "@/lib/api"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { TweetCard, SourceCard } from "@/components/content/content-cards"
+import { ActiveFiltersBar } from "./active-filters-bar"
+import { SourcesFilterDialog } from "./sources-filter-dialog"
+import {
+  loadDocumentFilters,
+  saveDocumentFilters,
+  clearDocumentFilters,
+  type SourceFilters,
+} from "@/lib/storage/document-filters"
+import { fetchAuthorsWithContentCount } from "@/lib/api/authors"
+import { fetchCollectionsWithContentCount } from "@/lib/api/collections"
 
 type Props = {
   documentId: number
@@ -23,27 +33,69 @@ export function SourcesPanel({ documentId, selectionText }: Props) {
   const [lastQuery, setLastQuery] = useState("")
   const requestRef = useRef(0)
 
+  // Filter state
+  const [selectedAuthorIds, setSelectedAuthorIds] = useState<number[]>([])
+  const [selectedCollectionIds, setSelectedCollectionIds] = useState<number[]>([])
+  const [filterDialogOpen, setFilterDialogOpen] = useState(false)
+  const [authors, setAuthors] = useState<Author[]>([])
+  const [collections, setCollections] = useState<Collection[]>([])
+
   const normalizedQuery = useMemo(
     () => selectionText.trim().replace(/\s+/g, " ").slice(0, 800),
     [selectionText],
   )
 
-  const runSearch = useCallback(async (query: string) => {
-    if (!query) return
-    const requestId = ++requestRef.current
-    setStatus("loading")
-    setLastQuery(query)
-    try {
-      const results = await searchContent({ query, limit: 20 })
-      if (requestRef.current !== requestId) return
-      setItems(results)
-      setStatus("idle")
-    } catch (error) {
-      console.error("Failed to search content", error)
-      if (requestRef.current !== requestId) return
-      setStatus("error")
+  // Load filters from localStorage on mount
+  useEffect(() => {
+    const saved = loadDocumentFilters(documentId)
+    if (saved) {
+      setSelectedAuthorIds(saved.authorIds)
+      setSelectedCollectionIds(saved.collectionIds)
     }
-  }, [])
+
+    // Fetch author and collection details for display
+    if (saved && (saved.authorIds.length > 0 || saved.collectionIds.length > 0)) {
+      if (saved.authorIds.length > 0) {
+        fetchAuthorsWithContentCount({ size: 100 })
+          .then((response) => {
+            setAuthors(response.items.filter((a) => saved.authorIds.includes(a.id)))
+          })
+          .catch(console.error)
+      }
+      if (saved.collectionIds.length > 0) {
+        fetchCollectionsWithContentCount({ size: 100 })
+          .then((response) => {
+            setCollections(response.items.filter((c) => saved.collectionIds.includes(c.id)))
+          })
+          .catch(console.error)
+      }
+    }
+  }, [documentId])
+
+  const runSearch = useCallback(
+    async (query: string) => {
+      if (!query) return
+      const requestId = ++requestRef.current
+      setStatus("loading")
+      setLastQuery(query)
+      try {
+        const results = await searchContent({
+          query,
+          limit: 20,
+          authorIds: selectedAuthorIds.length > 0 ? selectedAuthorIds : undefined,
+          collectionIds: selectedCollectionIds.length > 0 ? selectedCollectionIds : undefined,
+        })
+        if (requestRef.current !== requestId) return
+        setItems(results)
+        setStatus("idle")
+      } catch (error) {
+        console.error("Failed to search content", error)
+        if (requestRef.current !== requestId) return
+        setStatus("error")
+      }
+    },
+    [selectedAuthorIds, selectedCollectionIds],
+  )
 
   useEffect(() => {
     if (normalizedQuery.length < MIN_QUERY_LENGTH) {
@@ -61,9 +113,72 @@ export function SourcesPanel({ documentId, selectionText }: Props) {
     return () => clearTimeout(handle)
   }, [normalizedQuery, documentId, runSearch])
 
+  // Filter handlers
+  const handleApplyFilters = (filters: SourceFilters) => {
+    setSelectedAuthorIds(filters.authorIds)
+    setSelectedCollectionIds(filters.collectionIds)
+    saveDocumentFilters(documentId, filters)
+
+    // Fetch details for display
+    if (filters.authorIds.length > 0) {
+      fetchAuthorsWithContentCount({ size: 100 })
+        .then((response) => {
+          setAuthors(response.items.filter((a) => filters.authorIds.includes(a.id)))
+        })
+        .catch(console.error)
+    } else {
+      setAuthors([])
+    }
+
+    if (filters.collectionIds.length > 0) {
+      fetchCollectionsWithContentCount({ size: 100 })
+        .then((response) => {
+          setCollections(response.items.filter((c) => filters.collectionIds.includes(c.id)))
+        })
+        .catch(console.error)
+    } else {
+      setCollections([])
+    }
+
+    // Re-run search with new filters
+    if (normalizedQuery.length >= MIN_QUERY_LENGTH) {
+      void runSearch(normalizedQuery)
+    }
+  }
+
+  const handleRemoveAuthor = (authorId: number) => {
+    const newFilters = {
+      authorIds: selectedAuthorIds.filter((id) => id !== authorId),
+      collectionIds: selectedCollectionIds,
+    }
+    handleApplyFilters(newFilters)
+  }
+
+  const handleRemoveCollection = (collectionId: number) => {
+    const newFilters = {
+      authorIds: selectedAuthorIds,
+      collectionIds: selectedCollectionIds.filter((id) => id !== collectionId),
+    }
+    handleApplyFilters(newFilters)
+  }
+
+  const handleClearAllFilters = () => {
+    setSelectedAuthorIds([])
+    setSelectedCollectionIds([])
+    setAuthors([])
+    setCollections([])
+    clearDocumentFilters(documentId)
+
+    // Re-run search without filters
+    if (normalizedQuery.length >= MIN_QUERY_LENGTH) {
+      void runSearch(normalizedQuery)
+    }
+  }
+
   const showLoading = status === "loading"
   const showError = status === "error"
   const showEmpty = status === "idle" && items.length === 0 && normalizedQuery.length >= MIN_QUERY_LENGTH
+  const totalFilters = selectedAuthorIds.length + selectedCollectionIds.length
 
   return (
     <div className="flex h-full flex-col">
@@ -72,13 +187,40 @@ export function SourcesPanel({ documentId, selectionText }: Props) {
           <div className="space-y-1">
             <h2 className="text-lg font-semibold leading-tight">Related Content</h2>
           </div>
-          {status === "loading" && (
-            <Badge variant="outline" className="text-[11px]">
-              Searching…
-            </Badge>
-          )}
+          <div className="flex items-center gap-2">
+            {status === "loading" && (
+              <Badge variant="outline" className="text-[11px]">
+                Searching…
+              </Badge>
+            )}
+            <Button
+              variant={totalFilters > 0 ? "secondary" : "ghost"}
+              size="icon"
+              className="relative h-8 w-8"
+              onClick={() => setFilterDialogOpen(true)}
+              aria-label="Filter sources"
+            >
+              <Sliders className="h-4 w-4" />
+              {totalFilters > 0 && (
+                <Badge
+                  variant="default"
+                  className="absolute -right-1 -top-1 h-5 min-w-[20px] px-1 text-[10px]"
+                >
+                  {totalFilters}
+                </Badge>
+              )}
+            </Button>
+          </div>
         </div>
       </header>
+
+      <ActiveFiltersBar
+        authors={authors}
+        collections={collections}
+        onRemoveAuthor={handleRemoveAuthor}
+        onRemoveCollection={handleRemoveCollection}
+        onClearAll={handleClearAllFilters}
+      />
 
       <div className="flex flex-1 flex-col overflow-hidden">
         <ScrollArea className="h-full">
@@ -123,6 +265,15 @@ export function SourcesPanel({ documentId, selectionText }: Props) {
           </div>
         </ScrollArea>
       </div>
+
+      <SourcesFilterDialog
+        open={filterDialogOpen}
+        onOpenChange={setFilterDialogOpen}
+        documentId={documentId}
+        selectedAuthorIds={selectedAuthorIds}
+        selectedCollectionIds={selectedCollectionIds}
+        onApply={handleApplyFilters}
+      />
     </div>
   )
 }

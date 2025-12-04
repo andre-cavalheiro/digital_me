@@ -143,6 +143,8 @@ export interface ContentItem {
 export interface ContentSearchParams {
   query: string
   limit?: number
+  authorIds?: number[]
+  collectionIds?: number[]
 }
 
 export interface FetchContentListParams {

@@ -32,10 +32,26 @@ export async function searchContent(params: ContentSearchParams): Promise<Conten
     limit: params.limit ?? 20,
   }
 
+  // Build query parameters for filters
+  const queryParams: Record<string, string> = {}
+  const filters: string[] = []
+
+  if (params.authorIds && params.authorIds.length > 0) {
+    filters.push(`author_id:in:${params.authorIds.join(",")}`)
+  }
+
+  if (params.collectionIds && params.collectionIds.length > 0) {
+    filters.push(`collection_id:in:${params.collectionIds.join(",")}`)
+  }
+
+  if (filters.length > 0) {
+    queryParams.filters = filters
+  }
+
   return withMock(
     rankMockContent(payload.query, payload.limit ?? 20),
     async () => {
-      const response = await api.post(`/content/search`, payload)
+      const response = await api.post(`/content/search`, payload, { params: queryParams })
       const paginatedSchema = paginatedResponseSchema(contentItemSchema)
       const parsedPaginated = paginatedSchema.safeParse(response.data)
       if (parsedPaginated.success) {
@@ -150,7 +166,7 @@ export async function fetchContentList(params: FetchContentListParams = {}): Pro
 
   // Add filters to query params
   if (filters.length > 0) {
-    queryParams.filters = filters.join("&filters=")
+    queryParams.filters = filters
   }
 
   // Add sorting

@@ -130,14 +130,20 @@ class ContentsService(SqlService[Content]):
 
                 # Apply filter operation to collection_id
                 if filter_.op == FilterOp.EQ:
-                    subquery = subquery.where(ContentCollection.collection_id == filter_.value)
+                    # Ensure value is integer
+                    value = int(filter_.value) if not isinstance(filter_.value, int) else filter_.value
+                    subquery = subquery.where(ContentCollection.collection_id == value)
                 elif filter_.op == FilterOp.IN:
-                    values = filter_.value if isinstance(filter_.value, list) else [filter_.value]
+                    # Ensure all values are integers
+                    raw_values = filter_.value if isinstance(filter_.value, list) else [filter_.value]
+                    values = [int(v) if not isinstance(v, int) else v for v in raw_values]
                     subquery = subquery.where(ContentCollection.collection_id.in_(values))
                 elif filter_.op == FilterOp.NEQ:
-                    subquery = subquery.where(ContentCollection.collection_id != filter_.value)
+                    value = int(filter_.value) if not isinstance(filter_.value, int) else filter_.value
+                    subquery = subquery.where(ContentCollection.collection_id != value)
                 elif filter_.op == FilterOp.NOT_IN:
-                    values = filter_.value if isinstance(filter_.value, list) else [filter_.value]
+                    raw_values = filter_.value if isinstance(filter_.value, list) else [filter_.value]
+                    values = [int(v) if not isinstance(v, int) else v for v in raw_values]
                     subquery = subquery.where(~ContentCollection.collection_id.in_(values))
 
                 # Apply subquery filter to main query
