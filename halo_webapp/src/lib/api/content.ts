@@ -46,6 +46,12 @@ export async function searchContent(params: ContentSearchParams): Promise<Conten
 
   if (filters.length > 0) {
     queryParams.filters = filters
+
+    // Use OR logic when filtering by multiple criteria (author + collections)
+    // This returns content that matches ANY of the filter conditions
+    if (filters.length > 1) {
+      queryParams.filter_logic = "or"
+    }
   }
 
   return withMock(

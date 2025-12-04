@@ -8,7 +8,7 @@ from typing import Any, Literal
 
 from .exceptions import FilterInvalidTypeError
 
-__all__ = ["Filter", "FilterOp", "Sort"]
+__all__ = ["Filter", "FilterOp", "FilterCombineLogic", "Sort"]
 
 
 class FilterOp(str, Enum):
@@ -45,6 +45,11 @@ class FilterOp(str, Enum):
             FilterOp.NOT_CONTAINS,
             FilterOp.CONTAINS_ONE_OF,
         }
+
+
+class FilterCombineLogic(str, Enum):
+    AND = "and"
+    OR = "or"
 
 
 @dataclass(slots=True)

@@ -3,11 +3,12 @@ from collections.abc import Sequence
 from datetime import datetime
 from typing import Any, ClassVar, Optional, List
 
-from sqlalchemy import TIMESTAMP, BigInteger, Boolean, Float, Select, String, case, cast, func, select
+from sqlalchemy import TIMESTAMP, BigInteger, Boolean, Float, Select, String, case, cast, func, or_, select
 
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from fury_api.lib.model_filters import Filter, FilterOp, Sort
+from fury_api.lib.model_filters.models import FilterCombineLogic
 from fury_api.lib.pagination import CursorPage
 from fury_api.lib.repository.generic_sql import GenericSqlRepository, T
 
@@ -18,19 +19,29 @@ ModelSort = Sort
 
 
 class GenericSqlExtendedRepository(GenericSqlRepository[T], ABC):
-    def _apply_model_filters(self, query: Select, filters: list[Filter]) -> Select:
-        return SqlFilterAdapter.apply_all(self, query, filters)
+    def _apply_model_filters(
+        self,
+        query: Select,
+        filters: list[Filter],
+        combine_logic: FilterCombineLogic = FilterCombineLogic.AND,
+    ) -> Select:
+        return SqlFilterAdapter.apply_all(self, query, filters, combine_logic)
 
     def _apply_model_sorts(self, query: Select, sorts: list[Sort]) -> Select:
         return SqlSortAdapter.apply_all(self, query, sorts)
 
     def _build_query(
-        self, query: Select | None, *, model_filters: list[Filter] | None, model_sorts: list[Sort] | None
+        self,
+        query: Select | None,
+        *,
+        model_filters: list[Filter] | None,
+        model_sorts: list[Sort] | None,
+        filter_combine_logic: FilterCombineLogic = FilterCombineLogic.AND,
     ) -> Select:
         if query is None:
             query = select(self._model_cls)
         if model_filters:
-            query = self._apply_model_filters(query, model_filters)
+            query = self._apply_model_filters(query, model_filters, filter_combine_logic)
         if model_sorts:
             query = self._apply_model_sorts(query, model_sorts)
         return query
@@ -44,9 +55,15 @@ class GenericSqlExtendedRepository(GenericSqlRepository[T], ABC):
         query: Select | None = None,
         model_filters: list[Filter] | None = None,
         model_sorts: list[Sort] | None = None,
+        filter_combine_logic: FilterCombineLogic = FilterCombineLogic.AND,
         search_query: str | None = None,
     ) -> CursorPage[T]:
-        q = self._build_query(query, model_filters=model_filters, model_sorts=model_sorts)
+        q = self._build_query(
+            query,
+            model_filters=model_filters,
+            model_sorts=model_sorts,
+            filter_combine_logic=filter_combine_logic,
+        )
         return await super().list_with_pagination(
             session, filters=filters, advanced_filters=advanced_filters, query=q, search_query=search_query
         )
@@ -60,9 +77,15 @@ class GenericSqlExtendedRepository(GenericSqlRepository[T], ABC):
         advanced_filters: Sequence[Any] | None = None,
         model_filters: list[Filter] | None = None,
         model_sorts: list[Sort] | None = None,
+        filter_combine_logic: FilterCombineLogic = FilterCombineLogic.AND,
         search_query: str | None = None,
     ) -> list[T]:
-        q = self._build_query(query, model_filters=model_filters, model_sorts=model_sorts)
+        q = self._build_query(
+            query,
+            model_filters=model_filters,
+            model_sorts=model_sorts,
+            filter_combine_logic=filter_combine_logic,
+        )
         return await super().list(
             session, query=q, filters=filters, advanced_filters=advanced_filters, search_query=search_query
         )
@@ -199,10 +222,134 @@ class SqlFilterAdapter(SqlAdapter):
         return attr, value
 
     @classmethod
-    def apply_all(cls, repo: GenericSqlRepository[T], query: Select, filters: list[Filter]) -> Select:
-        for filter_ in filters:
-            query = cls.apply(repo, query, filter_)
-        return query
+    def build_condition(cls, repo: GenericSqlRepository[T], filter_: Filter):
+        """Build a single filter condition without applying to query."""
+        if filter_.is_path:
+            return SqlFilterPathAdapter.build_condition(repo, filter_)
+
+        try:
+            func_name = f"_condition_{cls.OPS_MAP.get(filter_.op)}"
+            func = getattr(cls, func_name)
+        except (AttributeError, TypeError) as e:
+            raise NotImplementedError(f"Filter operation {filter_.op} not implemented") from e
+
+        return func(repo, filter_)
+
+    # Condition builder methods (return conditions without applying to query)
+    @classmethod
+    def _condition_eq(cls, repo: GenericSqlRepository[T], filter_: Filter):
+        attr, value = cls._get_attr_and_value(repo, filter_)
+        return attr == value
+
+    @classmethod
+    def _condition_neq(cls, repo: GenericSqlRepository[T], filter_: Filter):
+        attr, value = cls._get_attr_and_value(repo, filter_)
+        return attr != value
+
+    @classmethod
+    def _condition_lt(cls, repo: GenericSqlRepository[T], filter_: Filter):
+        attr, value = cls._get_attr_and_value(repo, filter_)
+        return attr < value
+
+    @classmethod
+    def _condition_lte(cls, repo: GenericSqlRepository[T], filter_: Filter):
+        attr, value = cls._get_attr_and_value(repo, filter_)
+        return attr <= value
+
+    @classmethod
+    def _condition_gt(cls, repo: GenericSqlRepository[T], filter_: Filter):
+        attr, value = cls._get_attr_and_value(repo, filter_)
+        return attr > value
+
+    @classmethod
+    def _condition_gte(cls, repo: GenericSqlRepository[T], filter_: Filter):
+        attr, value = cls._get_attr_and_value(repo, filter_)
+        return attr >= value
+
+    @classmethod
+    def _condition_in_(cls, repo: GenericSqlRepository[T], filter_: Filter):
+        attr, value = cls._get_attr_and_value(repo, filter_, use_list=True)
+        if not isinstance(value, list):
+            value = [value]
+        return attr.in_(value)
+
+    @classmethod
+    def _condition_notin(cls, repo: GenericSqlRepository[T], filter_: Filter):
+        attr, value = cls._get_attr_and_value(repo, filter_, use_list=True)
+        if not isinstance(value, list):
+            value = [value]
+        return ~attr.in_(value)
+
+    @classmethod
+    def _condition_like(cls, repo: GenericSqlRepository[T], filter_: Filter):
+        attr, value = cls._get_attr_and_value(repo, filter_)
+        return attr.like(value)
+
+    @classmethod
+    def _condition_ilike(cls, repo: GenericSqlRepository[T], filter_: Filter):
+        attr, value = cls._get_attr_and_value(repo, filter_)
+        return attr.ilike(value)
+
+    @classmethod
+    def _condition_notlike(cls, repo: GenericSqlRepository[T], filter_: Filter):
+        attr, value = cls._get_attr_and_value(repo, filter_)
+        return ~attr.like(value)
+
+    @classmethod
+    def _condition_notilike(cls, repo: GenericSqlRepository[T], filter_: Filter):
+        attr, value = cls._get_attr_and_value(repo, filter_)
+        return ~attr.ilike(value)
+
+    @classmethod
+    def _condition_contains(cls, repo: GenericSqlRepository[T], filter_: Filter):
+        attr, value = cls._get_attr_and_value(repo, filter_, use_list=True)
+        if isinstance(value, list):
+            return attr.op("@>")(func.cast(value, attr.type))
+        return attr.contains(value)
+
+    @classmethod
+    def _condition_notcontains(cls, repo: GenericSqlRepository[T], filter_: Filter):
+        attr, value = cls._get_attr_and_value(repo, filter_)
+        return ~attr.contains(value)
+
+    @classmethod
+    def _condition_isnull(cls, repo: GenericSqlRepository[T], filter_: Filter):
+        attr, _ = cls._get_attr_and_value(repo, filter_)
+        return attr.is_(None)
+
+    @classmethod
+    def _condition_isnotnull(cls, repo: GenericSqlRepository[T], filter_: Filter):
+        attr, _ = cls._get_attr_and_value(repo, filter_)
+        return attr.is_not(None)
+
+    @classmethod
+    def _condition_containsoneof(cls, repo: GenericSqlRepository[T], filter_: Filter):
+        attr, value = cls._get_attr_and_value(repo, filter_, use_list=True)
+        if not isinstance(value, list):
+            raise Exception("Target Value must be list")
+        return attr.overlap(value)
+
+    @classmethod
+    def apply_all(
+        cls,
+        repo: GenericSqlRepository[T],
+        query: Select,
+        filters: list[Filter],
+        combine_logic: FilterCombineLogic = FilterCombineLogic.AND,
+    ) -> Select:
+        """Apply all filters with specified combining logic (AND or OR)."""
+        if not filters:
+            return query
+
+        if combine_logic == FilterCombineLogic.OR:
+            # Build all conditions and combine with OR
+            conditions = [cls.build_condition(repo, filter_) for filter_ in filters]
+            return query.where(or_(*conditions))
+        else:
+            # Default AND logic: sequential application
+            for filter_ in filters:
+                query = cls.apply(repo, query, filter_)
+            return query
 
     @classmethod
     def apply(cls, repo: GenericSqlRepository[T], query: Select, filter_: Filter) -> Select:
@@ -335,6 +482,15 @@ class SqlFilterPathAdapter(SqlFilterAdapter):
     def _safe_cast_attr(cls, attr: Any) -> Any:
         # Currently we only support filtering path fields as strings
         return attr
+
+    @classmethod
+    def build_condition(cls, repo: GenericSqlRepository[T], filter_: Filter):
+        """Build condition for path-based filter."""
+        func_name = f"_condition_{cls.OPS_MAP.get(filter_.op)}"
+        func = getattr(cls, func_name)
+        if func is None:
+            raise NotImplementedError(f"Filter operation {filter_.op} not implemented for path filters")
+        return func(repo, filter_)
 
     @classmethod
     def apply(cls, repo: GenericSqlRepository[T], query: Select, filter_: Filter) -> Select:

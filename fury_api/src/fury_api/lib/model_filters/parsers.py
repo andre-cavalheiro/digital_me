@@ -8,7 +8,7 @@ from .exceptions import (
     ModelFiltersOperationNotAllowedError,
     ModelFiltersSortFieldNotAllowedError,
 )
-from .models import Filter, FilterOp, Sort
+from .models import Filter, FilterCombineLogic, FilterOp, Sort
 
 __all__ = ["FiltersAndSortsParser"]
 
@@ -20,6 +20,7 @@ class FiltersAndSortsParser:
         *,
         raw_filters: list[str] | None = None,
         raw_sorts: list[str] | None = None,
+        filter_logic: FilterCombineLogic = FilterCombineLogic.AND,
         parse_filters_on_init: bool = True,
         parse_sorts_on_init: bool = True,
         fields_separator: str,
@@ -28,6 +29,7 @@ class FiltersAndSortsParser:
         self.definition = definition
         self.raw_filters = raw_filters
         self.raw_sorts = raw_sorts
+        self.filter_logic = filter_logic
         self.fields_separator = fields_separator
         self.path_separator = path_separator
 

@@ -3,6 +3,7 @@ from collections.abc import Callable
 from fastapi import HTTPException, Query, status
 
 from fury_api.lib.model_filters import ModelFilterAndSortDefinition, ModelFiltersError
+from fury_api.lib.model_filters.models import FilterCombineLogic
 from fury_api.lib.model_filters.parsers import FiltersAndSortsParser
 
 __all__ = [
@@ -20,13 +21,16 @@ def get_models_filters_parser_factory(
     additional_sorts: list[str] | None = None,
 ) -> Callable[..., FiltersAndSortsParser]:
     def dependency(
-        filters: list[str] | None = Query(None, alias="filters"), sorts: list[str] | None = Query(None, alias="sorts")
+        filters: list[str] | None = Query(None, alias="filters"),
+        sorts: list[str] | None = Query(None, alias="sorts"),
+        filter_logic: FilterCombineLogic = Query(FilterCombineLogic.AND, alias="filter_logic"),
     ) -> FiltersAndSortsParser:
         try:
             return FiltersAndSortsParser(
                 filters_definition,
                 raw_filters=(filters or []) + (additional_filters or []),
                 raw_sorts=(sorts or []) + (additional_sorts or []),
+                filter_logic=filter_logic,
                 parse_filters_on_init=init,
                 parse_sorts_on_init=init,
                 fields_separator=fields_separator,

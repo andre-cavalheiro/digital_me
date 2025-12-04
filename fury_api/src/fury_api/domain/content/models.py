@@ -22,7 +22,6 @@ class ContentBase(BaseSQLModel):
     published_at: datetime | None = None
     synced_at: datetime | None = None
     platform_metadata: dict[str, Any] | None = None
-    embedding: list[float] | None = None
     extra_fields: dict[str, Any] | None = None
 
 
@@ -73,6 +72,8 @@ class ContentCreate(ContentBase):
     synced_at: Optional[datetime] = None
     platform_metadata: Optional[dict[str, Any]] = None
     extra_fields: Optional[dict[str, Any]] = None
+
+    embedding: list[float] | None = None
 
 
 class ContentUpdate(BaseSQLModel):

@@ -163,4 +163,9 @@ async def search_content(
         FiltersAndSortsParser, Depends(get_models_filters_parser_factory(CONTENTS_FILTERS_DEFINITION))
     ],
 ) -> list[ContentRead]:
-    return await content_service.semantic_search(search, ai_client=ai_client, model_filters=filters_parser.filters)
+    return await content_service.semantic_search(
+        search,
+        ai_client=ai_client,
+        model_filters=filters_parser.filters,
+        filter_combine_logic=filters_parser.filter_logic,
+    )
