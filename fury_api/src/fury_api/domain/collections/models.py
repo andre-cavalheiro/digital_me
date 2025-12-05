@@ -15,6 +15,8 @@ __all__ = [
     "CollectionCreate",
     "CollectionUpdate",
     "ContentCollection",
+    "AuthorContribution",
+    "CollectionAuthorStatistics",
 ]
 
 
@@ -115,3 +117,28 @@ class ContentCollection(BigIntIDModel, table=True):
 
     created_at: datetime = Field(default_factory=datetime.utcnow, nullable=False)
     updated_at: datetime = Field(default_factory=datetime.utcnow, nullable=False)
+
+
+# ============================================================================
+# Collection Author Statistics Models
+# ============================================================================
+
+
+class AuthorContribution(BaseSQLModel):
+    """Model representing an author's contribution to a collection."""
+
+    author_id: int
+    display_name: str
+    handle: str
+    avatar_url: str | None
+    content_count: int
+    percentage: float
+
+
+class CollectionAuthorStatistics(BaseSQLModel):
+    """Model representing author statistics for a collection."""
+
+    collection_id: int
+    total_content_count: int
+    unique_author_count: int
+    contributors: list[AuthorContribution]

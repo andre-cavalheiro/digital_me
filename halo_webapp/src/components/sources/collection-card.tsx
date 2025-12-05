@@ -1,5 +1,6 @@
 "use client"
 
+import Link from "next/link"
 import { FolderOpen, ExternalLink } from "lucide-react"
 import type { CollectionWithContentCount } from "@/lib/api/collections"
 import { Button } from "@/components/ui/button"
@@ -18,7 +19,8 @@ export function CollectionCard({ collection }: CollectionCardProps) {
   }
 
   return (
-    <article className="group relative h-full rounded-lg border border-slate-200 bg-white p-4 shadow-sm transition hover:border-sky-200 hover:shadow-md">
+    <Link href={`/sources/collection/${collection.id}`} className="block h-full">
+      <article className="group relative h-full rounded-lg border border-slate-200 bg-white p-4 shadow-sm transition hover:border-sky-200 hover:shadow-md hover:cursor-pointer">
         {/* External link button */}
         {collection.collection_url && (
           <Button
@@ -70,6 +72,7 @@ export function CollectionCard({ collection }: CollectionCardProps) {
           )}
         </div>
       </article>
+    </Link>
   )
 }
 

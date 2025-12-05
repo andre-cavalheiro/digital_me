@@ -1,5 +1,6 @@
 "use client"
 
+import Link from "next/link"
 import Image from "next/image"
 import { ExternalLink, User } from "lucide-react"
 import type { AuthorWithContentCount } from "@/lib/api/authors"
@@ -19,7 +20,8 @@ export function AuthorCard({ author }: AuthorCardProps) {
   }
 
   return (
-    <article className="group relative h-full rounded-lg border border-slate-200 bg-white p-4 shadow-sm transition hover:border-sky-200 hover:shadow-md">
+    <Link href={`/sources/author/${author.id}`} className="block h-full">
+      <article className="group relative h-full rounded-lg border border-slate-200 bg-white p-4 shadow-sm transition hover:border-sky-200 hover:shadow-md hover:cursor-pointer">
         {/* External link button */}
         {author.profile_url && (
           <Button
@@ -83,6 +85,7 @@ export function AuthorCard({ author }: AuthorCardProps) {
           )}
         </div>
       </article>
+    </Link>
   )
 }
 

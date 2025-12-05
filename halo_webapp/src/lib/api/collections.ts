@@ -1,8 +1,27 @@
 import { z } from "zod"
 import { api } from "./client"
-import { withMock } from "./mocks"
+import { withMock, mockContentItems } from "./mocks"
 import { collectionSchema, type Collection } from "./schemas/collection"
+import { contentItemSchema } from "./schemas/content"
 import { paginatedResponseSchema } from "./schemas/pagination"
+import type { ContentItem, ContentListResponse } from "./types"
+
+// Author statistics types
+export interface AuthorContribution {
+  authorId: number
+  displayName: string
+  handle: string
+  avatarUrl: string | null
+  contentCount: number
+  percentage: number
+}
+
+export interface CollectionAuthorStatistics {
+  collectionId: number
+  totalContentCount: number
+  uniqueAuthorCount: number
+  contributors: AuthorContribution[]
+}
 
 // Mock data for development
 const mockCollections: Collection[] = [
@@ -215,4 +234,144 @@ export async function fetchCollectionsByIds(ids: number[]): Promise<CollectionWi
       return parsed.items
     },
   )
+}
+
+export interface FetchCollectionContentParams {
+  cursor?: string | null
+  limit?: number
+  sortBy?: "published_at" | "created_at"
+  sortOrder?: "asc" | "desc"
+  includeTotal?: boolean
+}
+
+/**
+ * Fetch content items in a specific collection
+ */
+export async function fetchCollectionContent(
+  collectionId: number,
+  params: FetchCollectionContentParams = {},
+): Promise<ContentListResponse> {
+  const { cursor, limit = 20, sortBy = "published_at", sortOrder = "desc", includeTotal = false } = params
+
+  return withMock(
+    {
+      items: mockContentItems.slice(0, limit),
+      nextCursor: mockContentItems.length > limit ? "mock_cursor_next" : null,
+      previousCursor: null,
+      total: includeTotal ? mockContentItems.length : null,
+    },
+    async () => {
+      const queryParams: Record<string, any> = {
+        size: String(limit),
+      }
+
+      if (cursor) {
+        queryParams.cursor = cursor
+      }
+
+      if (includeTotal) {
+        queryParams.includeTotal = "true"
+      }
+
+      queryParams.sorts = `${sortBy}:${sortOrder}`
+
+      const response = await api.get(`/collections/${collectionId}/content`, {
+        params: queryParams,
+      })
+      const paginatedSchema = paginatedResponseSchema(contentItemSchema)
+      const parsed = paginatedSchema.parse(response.data)
+
+      return {
+        items: parsed.items,
+        nextCursor: parsed.next_page || null,
+        previousCursor: parsed.previous_page || null,
+        total: parsed.total !== undefined ? parsed.total : null,
+      }
+    },
+  )
+}
+
+/**
+ * Fetch author contribution statistics for a collection
+ */
+export async function fetchCollectionAuthorStatistics(
+  collectionId: number,
+): Promise<CollectionAuthorStatistics> {
+  // Mock data for development
+  const mockStats: CollectionAuthorStatistics = {
+    collectionId,
+    totalContentCount: 150,
+    uniqueAuthorCount: 5,
+    contributors: [
+      {
+        authorId: 1,
+        displayName: "Tech Insights",
+        handle: "@techinsights",
+        avatarUrl: "https://api.dicebear.com/7.x/avataaars/svg?seed=techinsights",
+        contentCount: 75,
+        percentage: 50.0,
+      },
+      {
+        authorId: 2,
+        displayName: "Sarah Chen",
+        handle: "@sarahchen",
+        avatarUrl: "https://api.dicebear.com/7.x/avataaars/svg?seed=sarahchen",
+        contentCount: 45,
+        percentage: 30.0,
+      },
+      {
+        authorId: 3,
+        displayName: "AI Research Daily",
+        handle: "@airesearch",
+        avatarUrl: "https://api.dicebear.com/7.x/avataaars/svg?seed=airesearch",
+        contentCount: 20,
+        percentage: 13.3,
+      },
+      {
+        authorId: 4,
+        displayName: "John Doe",
+        handle: "@johndoe",
+        avatarUrl: "https://api.dicebear.com/7.x/avataaars/svg?seed=johndoe",
+        contentCount: 7,
+        percentage: 4.7,
+      },
+      {
+        authorId: 5,
+        displayName: "Jane Smith",
+        handle: "@janesmith",
+        avatarUrl: "https://api.dicebear.com/7.x/avataaars/svg?seed=janesmith",
+        contentCount: 3,
+        percentage: 2.0,
+      },
+    ],
+  }
+
+  return withMock(mockStats, async () => {
+    const response = await api.get(`/collections/${collectionId}/author-statistics`)
+    const payload = response.data as any
+
+    return {
+      collectionId: Number(payload.collectionId ?? payload.collection_id ?? collectionId),
+      totalContentCount: Number(payload.totalContentCount ?? payload.total_content_count ?? 0),
+      uniqueAuthorCount: Number(
+        payload.uniqueAuthorCount ?? payload.unique_author_count ?? payload.contributors?.length ?? 0,
+      ),
+      contributors: (payload.contributors ?? []).map((contributor: any) => {
+        const authorId = contributor.authorId ?? contributor.author_id
+        return {
+          authorId:
+            authorId !== undefined && authorId !== null ? Number(authorId) : Number.NaN,
+          displayName:
+            contributor.displayName ??
+            contributor.display_name ??
+            contributor.handle ??
+            "Unknown author",
+          handle: contributor.handle ?? "",
+          avatarUrl: contributor.avatarUrl ?? contributor.avatar_url ?? null,
+          contentCount: Number(contributor.contentCount ?? contributor.content_count ?? 0),
+          percentage: Number(contributor.percentage ?? 0),
+        }
+      }),
+    }
+  })
 }

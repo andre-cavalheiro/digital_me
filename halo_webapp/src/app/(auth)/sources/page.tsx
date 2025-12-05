@@ -15,7 +15,7 @@ type FetchState = "idle" | "loading" | "error"
 const PAGE_SIZE = 20
 
 export default function SourcesPage() {
-  const [activeTab, setActiveTab] = useState<Tab>("authors")
+  const [activeTab, setActiveTab] = useState<Tab>("collections")
 
   // Authors state
   const [authors, setAuthors] = useState<AuthorWithContentCount[]>([])
@@ -227,24 +227,6 @@ export default function SourcesPage() {
       {/* Tabs */}
       <div className="flex gap-2 border-b border-slate-200">
         <button
-          onClick={() => setActiveTab("authors")}
-          className={`relative px-4 py-2 text-sm font-medium transition ${
-            activeTab === "authors"
-              ? "text-sky-600"
-              : "text-slate-600 hover:text-slate-900"
-          }`}
-        >
-          Authors
-          {authorsTotal !== null && authorsTotal > 0 && (
-            <span className="ml-2 rounded-full bg-slate-100 px-2 py-0.5 text-xs">
-              {authorsTotal}
-            </span>
-          )}
-          {activeTab === "authors" && (
-            <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-sky-600" />
-          )}
-        </button>
-        <button
           onClick={() => setActiveTab("collections")}
           className={`relative px-4 py-2 text-sm font-medium transition ${
             activeTab === "collections"
@@ -259,6 +241,24 @@ export default function SourcesPage() {
             </span>
           )}
           {activeTab === "collections" && (
+            <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-sky-600" />
+          )}
+        </button>
+        <button
+          onClick={() => setActiveTab("authors")}
+          className={`relative px-4 py-2 text-sm font-medium transition ${
+            activeTab === "authors"
+              ? "text-sky-600"
+              : "text-slate-600 hover:text-slate-900"
+          }`}
+        >
+          Authors
+          {authorsTotal !== null && authorsTotal > 0 && (
+            <span className="ml-2 rounded-full bg-slate-100 px-2 py-0.5 text-xs">
+              {authorsTotal}
+            </span>
+          )}
+          {activeTab === "authors" && (
             <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-sky-600" />
           )}
         </button>

@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends, Query
 from fury_api.domain import paths
 from fury_api.domain.content.models import ContentRead
 from fury_api.domain.content.services import ContentsService
+from fury_api.domain.content.controllers import CONTENTS_FILTERS_DEFINITION
 from fury_api.lib.dependencies import (
     FiltersAndSortsParser,
     ServiceType,
@@ -12,7 +13,7 @@ from fury_api.lib.dependencies import (
     get_service,
 )
 from . import exceptions
-from .models import Collection, CollectionRead
+from .models import Collection, CollectionRead, CollectionAuthorStatistics
 from fury_api.lib.db.base import Identifier
 from fury_api.lib.pagination import CursorPage
 from fury_api.lib.model_filters.models import Filter, FilterOp
@@ -73,7 +74,9 @@ async def get_collection_content(
         ContentCollectionsService, Depends(get_service(ServiceType.CONTENT_COLLECTIONS, read_only=True))
     ],
     contents_service: Annotated[ContentsService, Depends(get_service(ServiceType.CONTENTS, read_only=True))],
-    limit: int = Query(20, ge=1, le=100, description="Number of items to return"),
+    filters_parser: Annotated[
+        FiltersAndSortsParser, Depends(get_models_filters_parser_factory(CONTENTS_FILTERS_DEFINITION))
+    ],
 ) -> CursorPage[ContentRead]:
     """Get all content in a specific collection."""
     # Verify collection exists
@@ -88,11 +91,24 @@ async def get_collection_content(
         # Return empty page if no content in collection
         return CursorPage(items=[], next_cursor=None)
 
-    # Get content filtered by these IDs
-    filters = [Filter(field="id", op=FilterOp.IN, value=content_ids, field_type=int)]
+    # Add content ID filter to the parsed filters
+    filters_parser.add_filter(Filter(field="id", op=FilterOp.IN, value=content_ids, field_type=int))
 
     return await contents_service.get_items_paginated(
-        model_filters=filters,
-        model_sorts=[],
-        limit=limit,
+        model_filters=filters_parser.filters,
+        model_sorts=filters_parser.sorts,
     )
+
+
+@collections_router.get(paths.COLLECTIONS_ID_AUTHOR_STATISTICS, response_model=CollectionAuthorStatistics)
+async def get_collection_author_statistics(
+    id_: Annotated[int, paths.COLLECTIONS_ID_PARAM],
+    collections_service: Annotated[CollectionsService, Depends(get_service(ServiceType.COLLECTIONS, read_only=True))],
+) -> CollectionAuthorStatistics:
+    """Get author contribution statistics for a specific collection."""
+    # Verify collection exists
+    collection = await collections_service.get_item(id_)
+    if not collection:
+        raise exceptions.CollectionNotFoundError(id_)
+
+    return await collections_service.get_author_statistics(id_)

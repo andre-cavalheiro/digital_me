@@ -133,9 +133,8 @@ class ContentsService(SqlService[Content]):
             collection_conditions = []
             for filter_ in collection_filters:
                 # Build subquery to find content_ids in matching collections
-                subquery = (
-                    select(ContentCollection.content_id)
-                    .where(ContentCollection.organization_id == self.organization_id)
+                subquery = select(ContentCollection.content_id).where(
+                    ContentCollection.organization_id == self.organization_id
                 )
 
                 # Apply filter operation to collection_id

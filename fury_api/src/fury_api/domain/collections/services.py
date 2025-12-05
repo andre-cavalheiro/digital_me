@@ -3,7 +3,7 @@ from sqlalchemy import select
 from fury_api.lib.service import SqlService, with_uow
 from fury_api.lib.unit_of_work import UnitOfWork
 from fury_api.domain.users.models import User
-from .models import Collection, ContentCollection
+from .models import Collection, ContentCollection, CollectionAuthorStatistics
 from .repository import CollectionsRepository, ContentCollectionsRepository
 
 __all__ = ["CollectionsService", "ContentCollectionsService"]
@@ -43,6 +43,28 @@ class CollectionsService(SqlService[Collection]):
     ) -> Collection | None:
         return await self.repository.get_by_platform_external_id(
             self.session, organization_id=self.organization_id, platform=platform, external_id=external_id
+        )
+
+    @with_uow
+    async def get_author_statistics(self, collection_id: int) -> CollectionAuthorStatistics:
+        """
+        Get author contribution statistics for a collection.
+
+        Args:
+            collection_id: ID of the collection
+
+        Returns:
+            CollectionAuthorStatistics with contributor information
+        """
+        total_count, contributors = await self.repository.get_author_statistics(
+            self.session, organization_id=self.organization_id, collection_id=collection_id
+        )
+
+        return CollectionAuthorStatistics(
+            collection_id=collection_id,
+            total_content_count=total_count,
+            unique_author_count=len(contributors),
+            contributors=contributors,
         )
 
 

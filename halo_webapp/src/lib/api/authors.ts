@@ -1,8 +1,10 @@
 import { z } from "zod"
 import { api } from "./client"
-import { withMock } from "./mocks"
+import { withMock, mockContentItems } from "./mocks"
 import { authorSchema, type Author } from "./schemas/author"
+import { contentItemSchema } from "./schemas/content"
 import { paginatedResponseSchema } from "./schemas/pagination"
+import type { ContentItem, ContentListResponse } from "./types"
 
 // Mock data for development
 const mockAuthors: Author[] = [
@@ -194,6 +196,61 @@ export async function fetchAuthorsByIds(ids: number[]): Promise<AuthorWithConten
       const parsed = paginatedSchema.parse(response.data)
 
       return parsed.items
+    },
+  )
+}
+
+export interface FetchAuthorContentParams {
+  cursor?: string | null
+  limit?: number
+  sortBy?: "published_at" | "created_at"
+  sortOrder?: "asc" | "desc"
+  includeTotal?: boolean
+}
+
+/**
+ * Fetch content items created by a specific author
+ */
+export async function fetchAuthorContent(
+  authorId: number,
+  params: FetchAuthorContentParams = {},
+): Promise<ContentListResponse> {
+  const { cursor, limit = 20, sortBy = "published_at", sortOrder = "desc", includeTotal = false } = params
+
+  return withMock(
+    {
+      items: mockContentItems.slice(0, limit),
+      nextCursor: mockContentItems.length > limit ? "mock_cursor_next" : null,
+      previousCursor: null,
+      total: includeTotal ? mockContentItems.length : null,
+    },
+    async () => {
+      const queryParams: Record<string, any> = {
+        size: String(limit),
+      }
+
+      if (cursor) {
+        queryParams.cursor = cursor
+      }
+
+      if (includeTotal) {
+        queryParams.includeTotal = "true"
+      }
+
+      queryParams.sorts = `${sortBy}:${sortOrder}`
+
+      const response = await api.get(`/authors/${authorId}/content`, {
+        params: queryParams,
+      })
+      const paginatedSchema = paginatedResponseSchema(contentItemSchema)
+      const parsed = paginatedSchema.parse(response.data)
+
+      return {
+        items: parsed.items,
+        nextCursor: parsed.next_page || null,
+        previousCursor: parsed.previous_page || null,
+        total: parsed.total !== undefined ? parsed.total : null,
+      }
     },
   )
 }
