@@ -25,7 +25,7 @@ export const contentItemSchema = z
     summary: z.string().nullable().optional(),
     excerpt: z.string().nullable().optional(),
     body: z.string().optional(),
-    author: authorSchema.optional(),
+    author: authorSchema.nullable().optional(),
     author_id: z.number().nullable().optional(),
     authorId: z.number().nullable().optional(),
     published_at: z.string().optional(),

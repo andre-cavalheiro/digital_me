@@ -2,11 +2,11 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { RefreshCcw, Search, Sliders } from "lucide-react"
-import { searchContent, type ContentItem, type TwitterPlatformMetadata, type Author, type Collection } from "@/lib/api"
+import { searchContent, type ContentItem, type Author, type Collection } from "@/lib/api"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { TweetCard, SourceCard } from "@/components/content/content-cards"
+import { ContentRenderer } from "@/components/content/content-renderer"
 import { ActiveFiltersBar } from "./active-filters-bar"
 import { SourcesFilterDialog } from "./sources-filter-dialog"
 import {
@@ -248,18 +248,9 @@ export function SourcesPanel({ documentId, selectionText }: Props) {
 
             {!showLoading && items.length > 0 && (
               <div className="space-y-3">
-                {items.map((item) => {
-                  // Check if this is a tweet with platform metadata
-                  const isTwitterContent = item.platform_metadata &&
-                    'author' in item.platform_metadata &&
-                    'text' in item.platform_metadata
-
-                  if (isTwitterContent) {
-                    return <TweetCard key={item.id} item={item} metadata={item.platform_metadata as TwitterPlatformMetadata} />
-                  }
-
-                  return <SourceCard key={item.id} item={item} />
-                })}
+                {items.map((item) => (
+                  <ContentRenderer key={item.id} item={item} />
+                ))}
               </div>
             )}
           </div>

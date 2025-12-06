@@ -24,8 +24,31 @@ class GenericSqlExtendedRepository(GenericSqlRepository[T], ABC):
         query: Select,
         filters: list[Filter],
         combine_logic: FilterCombineLogic = FilterCombineLogic.AND,
+        *,
+        filter_context: dict[str, Any] | None = None,
     ) -> Select:
-        return SqlFilterAdapter.apply_all(self, query, filters, combine_logic)
+        query, remaining_filters = self._apply_custom_filters(
+            query, filters, combine_logic, filter_context=filter_context
+        )
+        if remaining_filters:
+            return SqlFilterAdapter.apply_all(self, query, remaining_filters, combine_logic)
+        return query
+
+    def _apply_custom_filters(
+        self,
+        query: Select,
+        filters: list[Filter],
+        combine_logic: FilterCombineLogic = FilterCombineLogic.AND,
+        *,
+        filter_context: dict[str, Any] | None = None,
+    ) -> tuple[Select, list[Filter]]:
+        """
+        Hook for repositories to handle custom/virtual filters before the generic adapter runs.
+
+        Returns the (possibly modified) query and the list of filters that still need generic handling.
+        Default implementation performs no custom handling.
+        """
+        return query, filters
 
     def _apply_model_sorts(self, query: Select, sorts: list[Sort]) -> Select:
         return SqlSortAdapter.apply_all(self, query, sorts)
@@ -37,11 +60,12 @@ class GenericSqlExtendedRepository(GenericSqlRepository[T], ABC):
         model_filters: list[Filter] | None,
         model_sorts: list[Sort] | None,
         filter_combine_logic: FilterCombineLogic = FilterCombineLogic.AND,
+        filter_context: dict[str, Any] | None = None,
     ) -> Select:
         if query is None:
             query = select(self._model_cls)
         if model_filters:
-            query = self._apply_model_filters(query, model_filters, filter_combine_logic)
+            query = self._apply_model_filters(query, model_filters, filter_combine_logic, filter_context=filter_context)
         if model_sorts:
             query = self._apply_model_sorts(query, model_sorts)
         return query
@@ -57,12 +81,14 @@ class GenericSqlExtendedRepository(GenericSqlRepository[T], ABC):
         model_sorts: list[Sort] | None = None,
         filter_combine_logic: FilterCombineLogic = FilterCombineLogic.AND,
         search_query: str | None = None,
+        filter_context: dict[str, Any] | None = None,
     ) -> CursorPage[T]:
         q = self._build_query(
             query,
             model_filters=model_filters,
             model_sorts=model_sorts,
             filter_combine_logic=filter_combine_logic,
+            filter_context=filter_context,
         )
         return await super().list_with_pagination(
             session, filters=filters, advanced_filters=advanced_filters, query=q, search_query=search_query
@@ -79,12 +105,14 @@ class GenericSqlExtendedRepository(GenericSqlRepository[T], ABC):
         model_sorts: list[Sort] | None = None,
         filter_combine_logic: FilterCombineLogic = FilterCombineLogic.AND,
         search_query: str | None = None,
+        filter_context: dict[str, Any] | None = None,
     ) -> list[T]:
         q = self._build_query(
             query,
             model_filters=model_filters,
             model_sorts=model_sorts,
             filter_combine_logic=filter_combine_logic,
+            filter_context=filter_context,
         )
         return await super().list(
             session, query=q, filters=filters, advanced_filters=advanced_filters, search_query=search_query
@@ -96,6 +124,7 @@ class GenericSqlExtendedRepository(GenericSqlRepository[T], ABC):
         *,
         query: Select | None = None,
         model_filters: Optional[List[Filter]] = None,
+        filter_context: dict[str, Any] | None = None,
     ) -> int:
         """
         Counts all items in the database matching the provided filters.
@@ -105,7 +134,7 @@ class GenericSqlExtendedRepository(GenericSqlRepository[T], ABC):
         :param model_filters: Optional list of filters to apply.
         :return: The count of matching items.
         """
-        q = self._build_query(query, model_filters=model_filters, model_sorts=None)
+        q = self._build_query(query, model_filters=model_filters, model_sorts=None, filter_context=filter_context)
         count_query = select(func.count()).select_from(q.subquery())
         result = await session.execute(count_query)
         return result.scalar()

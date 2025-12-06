@@ -50,6 +50,7 @@ class ContentsService(SqlService[Content]):
                 model_filters=model_filters,
                 model_sorts=model_sorts,
                 filter_combine_logic=filter_combine_logic,
+                filter_context={"organization_id": self.organization_id},
                 **kwargs,
             )
 
@@ -87,6 +88,7 @@ class ContentsService(SqlService[Content]):
             model_filters=model_filters,
             model_sorts=model_sorts,
             filter_combine_logic=filter_combine_logic,
+            filter_context={"organization_id": self.organization_id},
             **kwargs,
         )
 
@@ -119,7 +121,10 @@ class ContentsService(SqlService[Content]):
             # Apply filters if provided
             if model_filters:
                 q = self.repository.apply_filters_to_semantic_query(
-                    q, model_filters, filter_combine_logic, self.organization_id
+                    q,
+                    model_filters,
+                    filter_combine_logic,
+                    organization_id=self.organization_id,
                 )
 
             q = q.order_by(self._model_cls.embedding.op("<->")(vector_literal)).limit(limit)

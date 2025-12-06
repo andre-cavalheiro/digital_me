@@ -1,12 +1,12 @@
 from typing import TYPE_CHECKING
 
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from .models import Content
 from fury_api.domain.authors.models import Author, AuthorRead
 from fury_api.lib.repository import GenericSqlExtendedRepository
-from fury_api.lib.model_filters import Filter
+from fury_api.lib.model_filters import Filter, FilterOp
 from fury_api.lib.model_filters.models import FilterCombineLogic
 
 if TYPE_CHECKING:
@@ -18,6 +18,69 @@ __all__ = ["ContentRepository"]
 class ContentRepository(GenericSqlExtendedRepository[Content]):
     def __init__(self) -> None:
         super().__init__(model_cls=Content)
+
+    def _apply_custom_filters(
+        self,
+        query: select,
+        filters: list[Filter],
+        combine_logic: FilterCombineLogic = FilterCombineLogic.AND,
+        *,
+        filter_context: dict | None = None,
+    ):
+        """
+        Handle virtual filters (collection_id) via the content_collection junction table.
+
+        Returns the updated query and any remaining filters for the generic adapter.
+        """
+        from fury_api.domain.collections.models import ContentCollection
+
+        organization_id = (filter_context or {}).get("organization_id")
+        collection_filters = [f for f in filters if f.field == "collection_id"]
+        remaining_filters = [f for f in filters if f.field != "collection_id"]
+
+        if not collection_filters:
+            return query, filters
+
+        if organization_id is None:
+            raise ValueError("organization_id is required to filter by collection_id")
+
+        from fury_api.lib.repository.generic_sql_extended import SqlFilterAdapter
+
+        def build_subquery(filter_: Filter):
+            subquery = select(ContentCollection.content_id).where(ContentCollection.organization_id == organization_id)
+
+            if filter_.op == FilterOp.EQ:
+                value = int(filter_.value) if not isinstance(filter_.value, int) else filter_.value
+                subquery = subquery.where(ContentCollection.collection_id == value)
+            elif filter_.op == FilterOp.IN:
+                raw_values = filter_.value if isinstance(filter_.value, list) else [filter_.value]
+                values = [int(v) if not isinstance(v, int) else v for v in raw_values]
+                subquery = subquery.where(ContentCollection.collection_id.in_(values))
+            elif filter_.op == FilterOp.NEQ:
+                value = int(filter_.value) if not isinstance(filter_.value, int) else filter_.value
+                subquery = subquery.where(ContentCollection.collection_id != value)
+            elif filter_.op == FilterOp.NOT_IN:
+                raw_values = filter_.value if isinstance(filter_.value, list) else [filter_.value]
+                values = [int(v) if not isinstance(v, int) else v for v in raw_values]
+                subquery = subquery.where(~ContentCollection.collection_id.in_(values))
+            else:
+                raise NotImplementedError(f"collection_id does not support op {filter_.op}")
+
+            return subquery
+
+        if combine_logic == FilterCombineLogic.AND:
+            for filter_ in collection_filters:
+                query = query.where(self._model_cls.id.in_(build_subquery(filter_)))
+            return query, remaining_filters
+
+        # OR combine logic: build one OR group across BOTH collection and remaining content filters
+        conditions = [self._model_cls.id.in_(build_subquery(f)) for f in collection_filters]
+        if remaining_filters:
+            conditions.extend(SqlFilterAdapter.build_condition(self, f) for f in remaining_filters)
+        if conditions:
+            query = query.where(or_(*conditions))
+        # All OR-ed together already; nothing left for the generic adapter
+        return query, []
 
     # FIXME: We shouldn't need this function! We should rely on the Author's domain service to load authors! Why are we duplicating logic?!
     async def load_authors_for_content(
@@ -53,114 +116,9 @@ class ContentRepository(GenericSqlExtendedRepository[Content]):
         combine_logic: FilterCombineLogic = FilterCombineLogic.AND,
         organization_id: int | None = None,
     ) -> select:
-        """
-        Apply model filters to a semantic search query with combine logic support.
-
-        Handles special case for collection_id which requires filtering
-        via the ContentCollection junction table. Direct Content filters
-        (like author_id) are applied using the repository's filter adapter.
-
-        Args:
-            query: Base SQLAlchemy select query
-            filters: List of Filter objects to apply
-            combine_logic: How to combine filters (AND or OR)
-            organization_id: Organization ID for collection filtering
-
-        Returns:
-            Modified query with filters applied
-        """
-        from fury_api.domain.collections.models import ContentCollection
-        from fury_api.lib.model_filters import FilterOp
-        from fury_api.lib.repository.generic_sql_extended import SqlFilterAdapter
-        from sqlalchemy import or_
-
-        # Separate collection filters from direct Content filters
-        collection_filters = [f for f in filters if f.field == "collection_id"]
-        content_filters = [f for f in filters if f.field != "collection_id"]
-
-        # For AND logic, use existing approach (works correctly)
-        if combine_logic == FilterCombineLogic.AND:
-            # Apply direct Content filters using repository's filter adapter
-            if content_filters:
-                query = self._apply_model_filters(query, content_filters, combine_logic)
-
-            # Handle collection filters with subquery
-            if collection_filters and organization_id is not None:
-                for filter_ in collection_filters:
-                    # Build subquery to find content_ids in matching collections
-                    subquery = select(ContentCollection.content_id).where(
-                        ContentCollection.organization_id == organization_id
-                    )
-
-                    # Apply filter operation to collection_id
-                    if filter_.op == FilterOp.EQ:
-                        value = int(filter_.value) if not isinstance(filter_.value, int) else filter_.value
-                        subquery = subquery.where(ContentCollection.collection_id == value)
-                    elif filter_.op == FilterOp.IN:
-                        raw_values = filter_.value if isinstance(filter_.value, list) else [filter_.value]
-                        values = [int(v) if not isinstance(v, int) else v for v in raw_values]
-                        subquery = subquery.where(ContentCollection.collection_id.in_(values))
-                    elif filter_.op == FilterOp.NEQ:
-                        value = int(filter_.value) if not isinstance(filter_.value, int) else filter_.value
-                        subquery = subquery.where(ContentCollection.collection_id != value)
-                    elif filter_.op == FilterOp.NOT_IN:
-                        raw_values = filter_.value if isinstance(filter_.value, list) else [filter_.value]
-                        values = [int(v) if not isinstance(v, int) else v for v in raw_values]
-                        subquery = subquery.where(~ContentCollection.collection_id.in_(values))
-
-                    # Apply condition with AND
-                    query = query.where(self._model_cls.id.in_(subquery))
-
-            return query
-
-        # For OR logic, build all conditions first then combine
-        all_conditions = []
-
-        # Build content filter conditions using SqlFilterAdapter
-        if content_filters:
-            content_conditions = [SqlFilterAdapter.build_condition(self, f) for f in content_filters]
-            if len(content_conditions) == 1:
-                all_conditions.append(content_conditions[0])
-            else:
-                all_conditions.append(or_(*content_conditions))
-
-        # Build collection filter conditions
-        if collection_filters and organization_id is not None:
-            collection_conditions = []
-            for filter_ in collection_filters:
-                # Build subquery to find content_ids in matching collections
-                subquery = select(ContentCollection.content_id).where(
-                    ContentCollection.organization_id == organization_id
-                )
-
-                # Apply filter operation to collection_id
-                if filter_.op == FilterOp.EQ:
-                    value = int(filter_.value) if not isinstance(filter_.value, int) else filter_.value
-                    subquery = subquery.where(ContentCollection.collection_id == value)
-                elif filter_.op == FilterOp.IN:
-                    raw_values = filter_.value if isinstance(filter_.value, list) else [filter_.value]
-                    values = [int(v) if not isinstance(v, int) else v for v in raw_values]
-                    subquery = subquery.where(ContentCollection.collection_id.in_(values))
-                elif filter_.op == FilterOp.NEQ:
-                    value = int(filter_.value) if not isinstance(filter_.value, int) else filter_.value
-                    subquery = subquery.where(ContentCollection.collection_id != value)
-                elif filter_.op == FilterOp.NOT_IN:
-                    raw_values = filter_.value if isinstance(filter_.value, list) else [filter_.value]
-                    values = [int(v) if not isinstance(v, int) else v for v in raw_values]
-                    subquery = subquery.where(~ContentCollection.collection_id.in_(values))
-
-                collection_conditions.append(self._model_cls.id.in_(subquery))
-
-            if len(collection_conditions) == 1:
-                all_conditions.append(collection_conditions[0])
-            else:
-                all_conditions.append(or_(*collection_conditions))
-
-        # Combine all conditions with OR
-        if all_conditions:
-            if len(all_conditions) == 1:
-                query = query.where(all_conditions[0])
-            else:
-                query = query.where(or_(*all_conditions))
-
-        return query
+        return self._apply_model_filters(
+            query,
+            filters,
+            combine_logic,
+            filter_context={"organization_id": organization_id},
+        )

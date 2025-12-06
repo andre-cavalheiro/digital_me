@@ -4,11 +4,11 @@ import { contentItemSchema } from "./schemas/content"
 import { paginatedResponseSchema } from "./schemas/pagination"
 import type { ContentItem, ContentSearchParams, FetchContentListParams, ContentListResponse } from "./types"
 
-export async function fetchContentFeed(params?: { limit?: number; sorts?: string }): Promise<ContentItem[]> {
+export async function fetchContentFeed(params?: { limit?: number; sorts?: string; include?: string }): Promise<ContentItem[]> {
   return withMock(
     mockContentItems,
     async () => {
-      const response = await api.get("/content", { params })
+      const response = await api.get("/content", { params: { ...params, include: "author" } })
       const paginatedSchema = paginatedResponseSchema(contentItemSchema)
       const parsed = paginatedSchema.parse(response.data)
       return parsed.items
@@ -20,7 +20,7 @@ export async function fetchContentItem(id: number): Promise<ContentItem> {
   return withMock(
     mockContentItems.find((item) => item.id === id) ?? mockContentItems[0],
     async () => {
-      const response = await api.get<ContentItem>(`/content/${id}`)
+      const response = await api.get<ContentItem>(`/content/${id}`, { params: { include: "author" } })
       return contentItemSchema.parse(response.data)
     },
   )
@@ -158,19 +158,27 @@ export async function fetchContentList(params: FetchContentListParams = {}): Pro
   const filters: string[] = []
 
   if (authorIds && authorIds.length > 0) {
-    filters.push(`author_id[in]:${authorIds.join(",")}`)
+    if (authorIds.length === 1) {
+      filters.push(`author_id:eq:${authorIds[0]}`)
+    } else {
+      filters.push(`author_id:in:${authorIds.join(",")}`)
+    }
   }
 
   if (collectionIds && collectionIds.length > 0) {
-    filters.push(`collection_id[in]:${collectionIds.join(",")}`)
+    if (collectionIds.length === 1) {
+      filters.push(`collection_id:eq:${collectionIds[0]}`)
+    } else {
+      filters.push(`collection_id:in:${collectionIds.join(",")}`)
+    }
   }
 
   if (publishedAfter) {
-    filters.push(`published_at[gte]:${publishedAfter}`)
+    filters.push(`published_at:gte:${publishedAfter}`)
   }
 
   if (publishedBefore) {
-    filters.push(`published_at[lte]:${publishedBefore}`)
+    filters.push(`published_at:lte:${publishedBefore}`)
   }
 
   // Add filters to query params

@@ -3,9 +3,6 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, Query
 
 from fury_api.domain import paths
-from fury_api.domain.content.models import ContentRead
-from fury_api.domain.content.services import ContentsService
-from fury_api.domain.content.controllers import CONTENTS_FILTERS_DEFINITION
 from fury_api.lib.dependencies import (
     FiltersAndSortsParser,
     ServiceType,
@@ -67,27 +64,3 @@ async def get_author(
     if not author:
         raise exceptions.AuthorNotFoundError(id_)
     return author
-
-
-@authors_router.get(paths.AUTHORS_ID_CONTENT, response_model=CursorPage[ContentRead])
-async def get_author_content(
-    id_: Annotated[int, paths.AUTHORS_ID_PARAM],
-    authors_service: Annotated[AuthorsService, Depends(get_service(ServiceType.AUTHORS, read_only=True))],
-    contents_service: Annotated[ContentsService, Depends(get_service(ServiceType.CONTENTS, read_only=True))],
-    filters_parser: Annotated[
-        FiltersAndSortsParser, Depends(get_models_filters_parser_factory(CONTENTS_FILTERS_DEFINITION))
-    ],
-) -> CursorPage[ContentRead]:
-    """Get all content by a specific author."""
-    # Verify author exists
-    author = await authors_service.get_item(id_)
-    if not author:
-        raise exceptions.AuthorNotFoundError(id_)
-
-    # Add author_id filter to the parsed filters
-    filters_parser.add_filter(Filter(field="author_id", op=FilterOp.EQ, value=id_, field_type=int))
-
-    return await contents_service.get_items_paginated(
-        model_filters=filters_parser.filters,
-        model_sorts=filters_parser.sorts,
-    )

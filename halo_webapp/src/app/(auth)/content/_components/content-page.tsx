@@ -3,8 +3,8 @@
 import { useEffect, useState, useRef, useCallback } from "react"
 import { useSearchParams } from "next/navigation"
 import { Loader2 } from "lucide-react"
-import { fetchContentList, searchContent, type ContentItem, type TwitterPlatformMetadata } from "@/lib/api"
-import { TweetCard, SourceCard } from "@/components/content/content-cards"
+import { fetchContentList, searchContent, type ContentItem } from "@/lib/api"
+import { ContentRenderer } from "@/components/content/content-renderer"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { ContentListSkeleton } from "./content-list-skeleton"
@@ -258,17 +258,9 @@ export function ContentPage() {
         <>
           {hasContent ? (
             <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-              {displayItems.map((item) => {
-                // Check if this is a tweet with platform metadata
-                const isTwitterContent =
-                  item.platform_metadata && "author" in item.platform_metadata && "text" in item.platform_metadata
-
-                if (isTwitterContent) {
-                  return <TweetCard key={item.id} item={item} metadata={item.platform_metadata as TwitterPlatformMetadata} />
-                }
-
-                return <SourceCard key={item.id} item={item} />
-              })}
+              {displayItems.map((item) => (
+                <ContentRenderer key={item.id} item={item} />
+              ))}
             </div>
           ) : mode === "searching" ? (
             <Card className="border-dashed text-muted-foreground">

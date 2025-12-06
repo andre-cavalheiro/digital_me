@@ -7,8 +7,8 @@ import type { ContentItem, Author } from "@/lib/api/types"
  * The frontend always requests author data, so this should always be populated.
  *
  * @param item - Content item
- * @returns Author object or undefined
+ * @returns Author object, null, or undefined
  */
-export function getContentAuthor(item: ContentItem): Author | undefined {
+export function getContentAuthor(item: ContentItem): Author | null | undefined {
   return item.author
 }

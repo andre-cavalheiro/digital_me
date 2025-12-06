@@ -5,10 +5,10 @@ import { useRouter } from "next/navigation"
 import Image from "next/image"
 import { ArrowLeft, ExternalLink, User, Loader2 } from "lucide-react"
 import { fetchAuthorContent, type AuthorWithContentCount } from "@/lib/api/authors"
-import type { ContentItem, TwitterPlatformMetadata } from "@/lib/api"
+import type { ContentItem } from "@/lib/api"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { TweetCard, SourceCard } from "@/components/content/content-cards"
+import { ContentRenderer } from "@/components/content/content-renderer"
 
 type AuthorDetailViewProps = {
   author: AuthorWithContentCount
@@ -256,25 +256,9 @@ export function AuthorDetailView({ author }: AuthorDetailViewProps) {
             {content.length > 0 ? (
               <>
                 <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-                  {content.map((item) => {
-                    // Check if this is a tweet
-                    const isTweet =
-                      item.platform_metadata &&
-                      typeof item.platform_metadata === "object" &&
-                      "author" in item.platform_metadata
-
-                    if (isTweet) {
-                      return (
-                        <TweetCard
-                          key={item.id}
-                          item={item}
-                          metadata={item.platform_metadata as TwitterPlatformMetadata}
-                        />
-                      )
-                    }
-
-                    return <SourceCard key={item.id} item={item} />
-                  })}
+                  {content.map((item) => (
+                    <ContentRenderer key={item.id} item={item} />
+                  ))}
                 </div>
 
                 {/* Infinite scroll sentinel */}
