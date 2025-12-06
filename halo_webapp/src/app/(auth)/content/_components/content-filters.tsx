@@ -1,8 +1,6 @@
 "use client"
 
 import { useRouter, useSearchParams } from "next/navigation"
-import { X } from "lucide-react"
-import { Button } from "@/components/ui/button"
 import {
   Select,
   SelectContent,
@@ -28,31 +26,15 @@ export function ContentFilters({ onFilterChange }: FilterProps) {
     onFilterChange()
   }
 
-  const handleClearFilters = () => {
-    router.push("/content")
-    onFilterChange()
-  }
-
-  const hasFilters = currentSort !== "newest"
-
   return (
-    <div className="flex items-center gap-3">
-      <Select value={currentSort} onValueChange={handleSortChange}>
-        <SelectTrigger className="w-[180px]">
-          <SelectValue placeholder="Sort by..." />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="newest">Newest First</SelectItem>
-          <SelectItem value="oldest">Oldest First</SelectItem>
-        </SelectContent>
-      </Select>
-
-      {hasFilters && (
-        <Button variant="ghost" size="sm" onClick={handleClearFilters}>
-          <X className="mr-2 h-4 w-4" />
-          Clear
-        </Button>
-      )}
-    </div>
+    <Select value={currentSort} onValueChange={handleSortChange}>
+      <SelectTrigger className="w-[180px]">
+        <SelectValue placeholder="Sort by..." />
+      </SelectTrigger>
+      <SelectContent>
+        <SelectItem value="newest">Newest First</SelectItem>
+        <SelectItem value="oldest">Oldest First</SelectItem>
+      </SelectContent>
+    </Select>
   )
 }

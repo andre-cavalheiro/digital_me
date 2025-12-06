@@ -91,7 +91,7 @@ export interface FetchCollectionsParams {
 export async function fetchCollections(params: FetchCollectionsParams = {}): Promise<Collection[]> {
   const { limit = 20, offset = 0, platform, type, sortBy = "name", sortOrder = "asc" } = params
 
-  const queryParams: Record<string, string> = {
+  const queryParams: Record<string, string | string[]> = {
     size: String(limit),
   }
 

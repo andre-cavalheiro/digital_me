@@ -33,7 +33,7 @@ export async function searchContent(params: ContentSearchParams): Promise<Conten
   }
 
   // Build query parameters for filters
-  const queryParams: Record<string, string> = {}
+  const queryParams: Record<string, string | string[]> = {}
   const filters: string[] = []
 
   if (params.authorIds && params.authorIds.length > 0) {
@@ -139,7 +139,7 @@ export async function fetchContentList(params: FetchContentListParams = {}): Pro
   } = params
 
   // Build query parameters
-  const queryParams: Record<string, string> = {
+  const queryParams: Record<string, string | string[]> = {
     size: String(limit),
   }
 
