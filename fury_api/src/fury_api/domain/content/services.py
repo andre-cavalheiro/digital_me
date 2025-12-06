@@ -4,9 +4,10 @@ from collections.abc import Iterable, Sequence
 import sqlalchemy as sa
 from sqlalchemy import select
 from pgvector.sqlalchemy import Vector
-from .models import Content, ContentBulkResult, ContentSearchRequest, FailedContent
+from .models import Content, ContentBulkResult, ContentSearchRequest, FailedContent, ContentRead
 from fury_api.lib.unit_of_work import UnitOfWork
 from fury_api.domain.users.models import User
+from fury_api.lib.pagination import CursorPage
 
 from fury_api.lib.service import SqlService, with_uow
 from fury_api.lib.integrations.base_ai import BaseAIClient
@@ -15,7 +16,7 @@ from fury_api.lib.model_filters import Filter
 from fury_api.lib.model_filters.models import FilterCombineLogic
 
 if TYPE_CHECKING:
-    from fury_api.lib.integrations import XAppClient
+    pass
 
 __all__ = ["ContentsService"]
 
@@ -30,24 +31,64 @@ class ContentsService(SqlService[Content]):
     ):
         super().__init__(Content, uow, auth_user=auth_user, **kwargs)
 
-    async def search_external_sources(
+    @with_uow
+    async def get_items_paginated(
         self,
-        search: ContentSearchRequest,
         *,
-        x_client: "XAppClient",
-    ) -> list[dict[str, Any]]:
-        """
-        Perform a basic external search using the X App integration.
+        model_filters: list[Filter] | None = None,
+        model_sorts: list[Filter] | None = None,
+        filter_combine_logic: FilterCombineLogic = FilterCombineLogic.AND,
+        include_author: bool = False,
+        **kwargs: Any,
+    ) -> CursorPage[ContentRead]:
+        """Get paginated content with optional author join."""
 
-        Args:
-            search: Search payload containing query and optional limit.
-            x_client: Configured X client used to execute the search.
+        if include_author:
+            # Step 1: Paginate Content using existing infrastructure
+            content_page = await self.repository.list_with_pagination(
+                self.session,
+                model_filters=model_filters,
+                model_sorts=model_sorts,
+                filter_combine_logic=filter_combine_logic,
+                **kwargs,
+            )
 
-        Returns:
-            List of post dictionaries from X (raw response data or empty list).
-        """
-        response = x_client.search_all(query=search.query, max_results=search.limit)
-        return [post.model_dump() for post in response.data] if response and response.data else []
+            # Step 2: Bulk-load authors for paginated results
+            authors_map = await self.repository.load_authors_for_content(
+                self.session,
+                {item.author_id for item in content_page.items if item.author_id},
+            )
+
+            # Step 3: Transform results to include authors
+            items_with_authors = [
+                ContentRead.model_validate(
+                    {
+                        **item.model_dump(),
+                        "author": authors_map.get(item.author_id) if item.author_id else None,
+                    },
+                    from_attributes=True,
+                )
+                for item in content_page.items
+            ]
+
+            # Return properly paginated response
+            return CursorPage(
+                items=items_with_authors,
+                total=content_page.total,
+                current_page=content_page.current_page,
+                current_page_backwards=content_page.current_page_backwards,
+                previous_page=content_page.previous_page,
+                next_page=content_page.next_page,
+            )
+
+        # Without author, use existing generic pagination
+        return await self.repository.list_with_pagination(
+            self.session,
+            model_filters=model_filters,
+            model_sorts=model_sorts,
+            filter_combine_logic=filter_combine_logic,
+            **kwargs,
+        )
 
     @with_uow
     async def get_by_ids(self, ids: Sequence[int]) -> list[Content]:
@@ -65,7 +106,8 @@ class ContentsService(SqlService[Content]):
         ai_client: BaseAIClient | None = None,
         model_filters: list[Filter] | None = None,
         filter_combine_logic: FilterCombineLogic = FilterCombineLogic.AND,
-    ) -> list[Content]:
+        include_author: bool = False,
+    ) -> list[ContentRead]:
         limit = search.limit or 20
 
         async def _run(client: BaseAIClient) -> list[Content]:
@@ -76,97 +118,44 @@ class ContentsService(SqlService[Content]):
 
             # Apply filters if provided
             if model_filters:
-                q = self._apply_filters_to_semantic_query(q, model_filters, filter_combine_logic)
+                q = self.repository.apply_filters_to_semantic_query(
+                    q, model_filters, filter_combine_logic, self.organization_id
+                )
 
             q = q.order_by(self._model_cls.embedding.op("<->")(vector_literal)).limit(limit)
 
             result = await self.session.exec(q)
             return result.scalars().all()
 
+        # Get search results
         if ai_client is not None:
-            return await _run(ai_client)
+            content_items = await _run(ai_client)
+        else:
+            async with IntegrationsFactory.get_ai_client() as client:
+                content_items = await _run(client)
 
-        async with IntegrationsFactory.get_ai_client() as client:
-            return await _run(client)
+        # If not including author, return as-is
+        if not include_author:
+            return [ContentRead.model_validate(item, from_attributes=True) for item in content_items]
 
-    def _apply_filters_to_semantic_query(
-        self,
-        query: select,
-        filters: list[Filter],
-        combine_logic: FilterCombineLogic = FilterCombineLogic.AND,
-    ) -> select:
-        """
-        Apply model filters to the semantic search query with combine logic support.
+        # Bulk-load authors for search results
+        author_ids = {item.author_id for item in content_items if item.author_id}
+        authors_map = await self.repository.load_authors_for_content(
+            self.session,
+            author_ids,
+        )
 
-        Handles special case for collection_id which requires filtering
-        via the ContentCollection junction table. Direct Content filters
-        (like author_id) are applied using the repository's filter adapter.
-
-        Args:
-            query: Base SQLAlchemy select query
-            filters: List of Filter objects to apply
-            combine_logic: How to combine filters (AND or OR)
-
-        Returns:
-            Modified query with filters applied
-        """
-        from fury_api.domain.collections.models import ContentCollection
-        from fury_api.lib.model_filters import FilterOp
-        from sqlalchemy import or_
-
-        # Separate collection filters from direct Content filters
-        collection_filters = []
-        content_filters = []
-
-        for filter_ in filters:
-            if filter_.field == "collection_id":
-                collection_filters.append(filter_)
-            else:
-                content_filters.append(filter_)
-
-        # Apply direct Content filters using repository's filter adapter
-        if content_filters:
-            query = self.repository._apply_model_filters(query, content_filters, combine_logic)
-
-        # Handle collection filters with subquery
-        if collection_filters:
-            collection_conditions = []
-            for filter_ in collection_filters:
-                # Build subquery to find content_ids in matching collections
-                subquery = select(ContentCollection.content_id).where(
-                    ContentCollection.organization_id == self.organization_id
-                )
-
-                # Apply filter operation to collection_id
-                if filter_.op == FilterOp.EQ:
-                    # Ensure value is integer
-                    value = int(filter_.value) if not isinstance(filter_.value, int) else filter_.value
-                    subquery = subquery.where(ContentCollection.collection_id == value)
-                elif filter_.op == FilterOp.IN:
-                    # Ensure all values are integers
-                    raw_values = filter_.value if isinstance(filter_.value, list) else [filter_.value]
-                    values = [int(v) if not isinstance(v, int) else v for v in raw_values]
-                    subquery = subquery.where(ContentCollection.collection_id.in_(values))
-                elif filter_.op == FilterOp.NEQ:
-                    value = int(filter_.value) if not isinstance(filter_.value, int) else filter_.value
-                    subquery = subquery.where(ContentCollection.collection_id != value)
-                elif filter_.op == FilterOp.NOT_IN:
-                    raw_values = filter_.value if isinstance(filter_.value, list) else [filter_.value]
-                    values = [int(v) if not isinstance(v, int) else v for v in raw_values]
-                    subquery = subquery.where(~ContentCollection.collection_id.in_(values))
-
-                # Build condition for this collection filter
-                collection_conditions.append(self._model_cls.id.in_(subquery))
-
-            # Apply collection conditions based on combine_logic
-            if combine_logic == FilterCombineLogic.OR:
-                query = query.where(or_(*collection_conditions))
-            else:
-                # AND logic: apply each condition separately
-                for condition in collection_conditions:
-                    query = query.where(condition)
-
-        return query
+        # Transform results to include authors
+        return [
+            ContentRead.model_validate(
+                {
+                    **item.model_dump(),
+                    "author": authors_map.get(item.author_id) if item.author_id else None,
+                },
+                from_attributes=True,
+            )
+            for item in content_items
+        ]
 
     def _prepare_embedding_text(self, content: Content) -> str:
         """

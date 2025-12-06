@@ -8,6 +8,7 @@ from pydantic import ConfigDict
 from sqlmodel import Field
 from pgvector.sqlalchemy import Vector
 from fury_api.lib.db.base import BaseSQLModel, BigIntIDModel
+from fury_api.domain.authors.models import AuthorRead
 
 __all__ = ["Content", "ContentCreate", "ContentRead", "ContentUpdate", "ContentSearchRequest"]
 __all__ += ["ContentBulkCreate", "ContentBulkResult", "FailedContent"]
@@ -53,10 +54,11 @@ class Content(ContentBase, BigIntIDModel, table=True):
 
 
 class ContentRead(ContentBase):
-    model_config = ConfigDict(extra="ignore")
+    model_config = ConfigDict(extra="ignore", from_attributes=True)
 
     id: int
     author_id: int | None
+    author: AuthorRead | None = None
     created_at: datetime
     updated_at: datetime
 

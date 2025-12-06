@@ -58,9 +58,15 @@ async def get_content_items(
     filters_parser: Annotated[
         FiltersAndSortsParser, Depends(get_models_filters_parser_factory(CONTENTS_FILTERS_DEFINITION))
     ],
+    include: str | None = None,
 ) -> CursorPage[ContentRead]:
+    # Parse include parameter
+    include_author = bool(include and "author" in include.split(","))
+
     return await content_service.get_items_paginated(
-        model_filters=filters_parser.filters, model_sorts=filters_parser.sorts
+        model_filters=filters_parser.filters,
+        model_sorts=filters_parser.sorts,
+        include_author=include_author,
     )
 
 
@@ -162,10 +168,15 @@ async def search_content(
     filters_parser: Annotated[
         FiltersAndSortsParser, Depends(get_models_filters_parser_factory(CONTENTS_FILTERS_DEFINITION))
     ],
+    include: str | None = None,
 ) -> list[ContentRead]:
+    # Parse include parameter
+    include_author = bool(include and "author" in include.split(","))
+
     return await content_service.semantic_search(
         search,
         ai_client=ai_client,
         model_filters=filters_parser.filters,
         filter_combine_logic=filters_parser.filter_logic,
+        include_author=include_author,
     )

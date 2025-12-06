@@ -1,4 +1,5 @@
 import { z } from "zod"
+import { authorSchema } from "./author"
 
 const quotedTweetDataSchema = z.object({
   id: z.string(),
@@ -24,7 +25,7 @@ export const contentItemSchema = z
     summary: z.string().nullable().optional(),
     excerpt: z.string().nullable().optional(),
     body: z.string().optional(),
-    author: z.string().optional(),
+    author: authorSchema.optional(),
     author_id: z.number().nullable().optional(),
     authorId: z.number().nullable().optional(),
     published_at: z.string().optional(),

@@ -131,7 +131,7 @@ export interface ContentItem {
   title: string
   summary?: string
   excerpt?: string
-  author?: string
+  author?: Author
   author_id?: number | null
   published_at?: string
   source_url?: string
