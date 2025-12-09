@@ -152,7 +152,8 @@ class DevExSettings(FuryBaseSettings):
     @model_validator(mode="after")
     def disable_all_if_disabled(self: Self) -> Self:
         if not self.ENABLED:
-            for field_name, field_info in self.model_fields.items():
+            model_fields = self.__class__.model_fields
+            for field_name, field_info in model_fields.items():
                 if field_name == "ENABLED":
                     continue
                 value = getattr(self, field_name, None)

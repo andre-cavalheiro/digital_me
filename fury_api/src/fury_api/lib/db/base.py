@@ -173,10 +173,11 @@ class BaseSQLModel(SQLModel):
     def __setattr__(self, name: str, value: Any) -> None:
         """Allow use properties with setters and access properties using their alias."""
         try:
-            if name in self.model_fields:
+            model_fields = self.__class__.model_fields
+            if name in model_fields:
                 super().__setattr__(name, value)
             else:
-                for alias, field in self.__fields_by_alias_iter__():
+                for alias, field in self.__class__.__fields_by_alias_iter__():
                     if alias == name:
                         super().__setattr__(field, value)
                         return
@@ -194,10 +195,10 @@ class BaseSQLModel(SQLModel):
 
     def __getattr__(self, name: str) -> Any:
         """Enable object attributes to be accessed using its alias."""
-        model_fields = self.model_fields
+        model_fields = self.__class__.model_fields
         if name in model_fields:
             return super().__getattribute__(name)
-        for alias, field in self.__fields_by_alias_iter__():
+        for alias, field in self.__class__.__fields_by_alias_iter__():
             if alias == name:
                 return getattr(self, field)
         return super().__getattribute__(name)
