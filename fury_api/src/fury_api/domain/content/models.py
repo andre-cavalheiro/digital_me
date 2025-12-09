@@ -54,7 +54,7 @@ class Content(ContentBase, BigIntIDModel, table=True):
 
 
 class ContentRead(ContentBase):
-    model_config = ConfigDict(extra="ignore", from_attributes=True)
+    model_config = ConfigDict(from_attributes=True)
 
     id: int
     author_id: int | None

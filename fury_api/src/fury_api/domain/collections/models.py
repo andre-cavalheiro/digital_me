@@ -51,7 +51,7 @@ class Collection(CollectionBase, BigIntIDModel, table=True):
         default=None, primary_key=True, sa_type=sa.BigInteger, sa_column_kwargs={"autoincrement": True}
     )
     organization_id: int = Field(sa_type=sa.BigInteger, foreign_key="organization.id", nullable=False)
-    plugin_id: int = Field(sa_type=sa.BigInteger, foreign_key="plugin.id", nullable=False)
+    plugin_id: int | None = Field(default=None, sa_type=sa.BigInteger, foreign_key="plugin.id", nullable=True)
 
     created_at: datetime = Field(default_factory=datetime.utcnow, nullable=False)
     updated_at: datetime = Field(default_factory=datetime.utcnow, nullable=False)
@@ -60,7 +60,7 @@ class Collection(CollectionBase, BigIntIDModel, table=True):
 class CollectionRead(CollectionBase):
     """Collection read model for API responses."""
 
-    model_config = ConfigDict(extra="ignore", populate_by_name=True)
+    model_config = ConfigDict(from_attributes=True, populate_by_name=True)
 
     id: int
     organization_id: int
@@ -72,7 +72,7 @@ class CollectionRead(CollectionBase):
 class CollectionCreate(CollectionBase):
     """Collection create model for API requests."""
 
-    pass
+    plugin_id: int | None
 
 
 class CollectionUpdate(BaseSQLModel):
