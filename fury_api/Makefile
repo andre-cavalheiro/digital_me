@@ -27,6 +27,9 @@ DOCKERFILE_PATH = ./deploy/docker/fury_api.Dockerfile
 KUBERNETES_CLUSTER = kratos
 KUBERNETES_NAMESPACE = digital-me
 
+# Database image for local tests (includes pgvector extension)
+TEST_DB_IMAGE ?= pgvector/pgvector:pg15
+
 PROD_SECRETS_FILE = .env.prod
 
 HELM_CHART_NAME = digital-me-api
@@ -233,8 +236,8 @@ test-ci:
 
 .PHONY: test-local
 test-local:
-	echo "Starting PostgreSQL container on port 5433..."; \
-	docker run --rm --name my_test_postgres -e POSTGRES_USER=postgres -e POSTGRES_PASSWORD=postgres -e POSTGRES_DB=postgres -p 5433:5432 -d postgres:15; \
+	echo "Starting PostgreSQL (pgvector) container on port 5433..."; \
+	docker run --rm --name my_test_postgres -e POSTGRES_USER=postgres -e POSTGRES_PASSWORD=postgres -e POSTGRES_DB=postgres -p 5433:5432 -d $(TEST_DB_IMAGE); \
 	trap "echo 'Stopping and removing PostgreSQL container...'; docker stop my_test_postgres; " INT EXIT; \
 	echo "Waiting for PostgreSQL to start..."; \
 	sleep 2; \
