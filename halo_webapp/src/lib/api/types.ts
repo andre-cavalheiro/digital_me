@@ -54,6 +54,17 @@ export interface TwitterAuthor {
   description?: string
 }
 
+export interface TwitterMedia {
+  media_key: string
+  type: 'photo' | 'video' | 'animated_gif'
+  url?: string                    // For photos
+  preview_image_url?: string      // For videos/GIFs
+  width?: number
+  height?: number
+  alt_text?: string | null
+  duration_ms?: number            // For videos
+}
+
 export interface TwitterPlatformMetadata {
   id: string
   text: string
@@ -70,6 +81,10 @@ export interface TwitterPlatformMetadata {
     quote_count: number
     impression_count: number
     bookmark_count: number
+  }
+  media?: TwitterMedia[]          // Media attachments (photos/videos)
+  attachments?: {
+    media_keys?: string[]
   }
   tweet_url?: string
   is_retweet?: boolean
@@ -120,6 +135,7 @@ export interface QuotedTweetData {
   } | null
   created_at: string | null
   url: string | null
+  media?: TwitterMedia[]
 }
 
 export interface ContentExtraFields {

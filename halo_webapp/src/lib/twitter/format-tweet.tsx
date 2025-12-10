@@ -46,6 +46,7 @@ function isSafeUrl(url: string): boolean {
 type ProcessableEntity =
   | { type: "url"; start: number; end: number; data: TwitterUrlEntity }
   | { type: "mention"; start: number; end: number; data: TwitterMentionEntity }
+  | { type: "hidden"; start: number; end: number }
 
 /**
  * Formats tweet text by converting entities to clickable links
@@ -105,6 +106,25 @@ export function formatTweetText(text: string, entities?: TwitterEntities): React
         url.url
       ) {
         const href = url.expanded_url || url.url
+
+        // Hide media URLs (pic.twitter.com, pic.x.com) that point to photos/videos
+        // These are displayed separately in the MediaGallery component
+        const isMediaUrl = href.includes('/photo/') ||
+                          href.includes('/video/') ||
+                          href.includes('pic.twitter.com') ||
+                          href.includes('pic.x.com')
+
+        if (isMediaUrl) {
+          // Add as hidden entity to remove from text display
+          const signature = `hidden:${url.start}-${url.end}`
+          addEntity(signature, {
+            type: "hidden",
+            start: url.start,
+            end: url.end,
+          })
+          continue
+        }
+
         const signature = `url:${url.start}-${url.end}:${href}`
 
         addEntity(signature, {
@@ -206,6 +226,9 @@ export function formatTweetText(text: string, entities?: TwitterEntities): React
           @{username}
         </a>
       )
+    } else if (entity.type === "hidden") {
+      // Hidden entities (like media URLs) render nothing - they're just removed from text
+      // Don't add anything to segments
     }
 
     lastIndex = entity.start

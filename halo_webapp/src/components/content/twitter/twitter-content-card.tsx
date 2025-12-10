@@ -6,6 +6,7 @@ import { formatTweetText } from "@/lib/twitter/format-tweet"
 import { getContentAuthor } from "@/lib/utils/content-author"
 import { ContentCardShell, AuthorBadge, MetricsDisplay } from "../shared"
 import { QuotedTweet } from "./quoted-tweet"
+import { MediaGallery } from "./media-gallery"
 
 export type TwitterContentCardProps = {
   item: ContentItem
@@ -73,6 +74,10 @@ export function TwitterContentCard({ item, metadata }: TwitterContentCardProps) 
           </button>
         )}
       </div>
+
+      {metadata.media && metadata.media.length > 0 && (
+        <MediaGallery media={metadata.media} />
+      )}
 
       {item.extra_fields?.quoted_tweet && (
         <QuotedTweet quotedTweet={item.extra_fields.quoted_tweet} />

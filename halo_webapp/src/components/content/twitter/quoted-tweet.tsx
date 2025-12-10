@@ -2,6 +2,7 @@
 
 import Image from "next/image"
 import type { QuotedTweetData } from "@/lib/api"
+import { MediaGallery } from "./media-gallery"
 
 export type QuotedTweetProps = {
   quotedTweet: QuotedTweetData
@@ -11,7 +12,7 @@ export type QuotedTweetProps = {
  * Displays a quoted tweet within a tweet card
  */
 export function QuotedTweet({ quotedTweet }: QuotedTweetProps) {
-  const { author, text, url } = quotedTweet
+  const { author, text, url, media } = quotedTweet
 
   const handleQuotedTweetClick = (e: React.MouseEvent) => {
     e.stopPropagation()
@@ -45,6 +46,9 @@ export function QuotedTweet({ quotedTweet }: QuotedTweetProps) {
       <p className="whitespace-pre-wrap break-words text-xs leading-relaxed text-slate-700">
         {text}
       </p>
+      {media && media.length > 0 && (
+        <MediaGallery media={media} compact />
+      )}
     </div>
   )
 }
