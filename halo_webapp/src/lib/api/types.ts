@@ -133,10 +133,10 @@ export interface ContentItem {
   excerpt?: string
   author?: Author | null
   author_id?: number | null
-  published_at?: string
+  published_at?: string | null
   source_url?: string
   body?: string
-  platform_metadata?: TwitterPlatformMetadata | Record<string, any>
+  platform_metadata?: TwitterPlatformMetadata | Record<string, any> | null
   extra_fields?: ContentExtraFields | null
 }
 
