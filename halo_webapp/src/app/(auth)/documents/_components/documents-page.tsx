@@ -95,10 +95,6 @@ export function DocumentsPage() {
           <p className="text-muted-foreground text-sm">Create, reopen, and jump back into your drafts.</p>
         </div>
         <div className="flex gap-3">
-          <Button variant="outline" onClick={() => router.refresh()} disabled={status === "loading"}>
-            <RefreshCcw className="mr-2 h-4 w-4" />
-            Refresh
-          </Button>
           <Button onClick={handleCreate} disabled={creating}>
             <Plus className="mr-2 h-4 w-4" />
             {creating ? "Creating…" : "New Document"}

@@ -1,13 +1,14 @@
 "use client"
 
 import { useEffect, useState, useRef, useCallback } from "react"
-import { Loader2 } from "lucide-react"
+import { Loader2, Search } from "lucide-react"
 import { fetchAuthorsWithContentCount, type AuthorWithContentCount } from "@/lib/api/authors"
 import { fetchCollectionsWithContentCount, type CollectionWithContentCount } from "@/lib/api/collections"
 import { AuthorCard } from "@/components/sources/author-card"
 import { CollectionCard } from "@/components/sources/collection-card"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
 
 type Tab = "authors" | "collections"
 type FetchState = "idle" | "loading" | "error"
@@ -16,6 +17,10 @@ const PAGE_SIZE = 20
 
 export default function SourcesPage() {
   const [activeTab, setActiveTab] = useState<Tab>("collections")
+
+  // Search state
+  const [authorSearchQuery, setAuthorSearchQuery] = useState("")
+  const [collectionSearchQuery, setCollectionSearchQuery] = useState("")
 
   // Authors state
   const [authors, setAuthors] = useState<AuthorWithContentCount[]>([])
@@ -39,65 +44,91 @@ export default function SourcesPage() {
   const authorsObserverRef = useRef<IntersectionObserver | null>(null)
   const collectionsObserverRef = useRef<IntersectionObserver | null>(null)
 
-  // Load initial authors
+  // Load initial authors (with search support and debouncing)
   useEffect(() => {
     let mounted = true
 
-    const loadAuthors = async () => {
-      setAuthorsStatus("loading")
-      try {
-        const response = await fetchAuthorsWithContentCount({ size: PAGE_SIZE, includeTotal: true })
-        if (mounted) {
-          setAuthors(response.items)
-          setAuthorsCursor(response.nextCursor)
-          setAuthorsHasMore(!!response.nextCursor)
-          setAuthorsTotal(response.total ?? null)
-          setAuthorsStatus("idle")
-        }
-      } catch (error) {
-        console.error("Failed to load authors", error)
-        if (mounted) {
-          setAuthorsStatus("error")
+    setAuthorsStatus("loading")
+    setAuthors([])
+    setAuthorsCursor(null)
+    setAuthorsHasMore(true)
+
+    const timer = setTimeout(() => {
+      const loadAuthors = async () => {
+        try {
+          const response = await fetchAuthorsWithContentCount({
+            size: PAGE_SIZE,
+            includeTotal: true,
+            sortBy: "display_name",
+            sortOrder: "asc",
+            search: authorSearchQuery || undefined,
+          })
+          if (mounted) {
+            setAuthors(response.items)
+            setAuthorsCursor(response.nextCursor)
+            setAuthorsHasMore(!!response.nextCursor)
+            setAuthorsTotal(response.total ?? null)
+            setAuthorsStatus("idle")
+          }
+        } catch (error) {
+          console.error("Failed to load authors", error)
+          if (mounted) {
+            setAuthorsStatus("error")
+          }
         }
       }
-    }
 
-    loadAuthors()
+      loadAuthors()
+    }, 300)
 
     return () => {
       mounted = false
+      clearTimeout(timer)
     }
-  }, [])
+  }, [authorSearchQuery])
 
-  // Load initial collections
+  // Load initial collections (with search support and debouncing)
   useEffect(() => {
     let mounted = true
 
-    const loadCollections = async () => {
-      setCollectionsStatus("loading")
-      try {
-        const response = await fetchCollectionsWithContentCount({ size: PAGE_SIZE, includeTotal: true })
-        if (mounted) {
-          setCollections(response.items)
-          setCollectionsCursor(response.nextCursor)
-          setCollectionsHasMore(!!response.nextCursor)
-          setCollectionsTotal(response.total ?? null)
-          setCollectionsStatus("idle")
-        }
-      } catch (error) {
-        console.error("Failed to load collections", error)
-        if (mounted) {
-          setCollectionsStatus("error")
+    setCollectionsStatus("loading")
+    setCollections([])
+    setCollectionsCursor(null)
+    setCollectionsHasMore(true)
+
+    const timer = setTimeout(() => {
+      const loadCollections = async () => {
+        try {
+          const response = await fetchCollectionsWithContentCount({
+            size: PAGE_SIZE,
+            includeTotal: true,
+            sortBy: "name",
+            sortOrder: "asc",
+            search: collectionSearchQuery || undefined,
+          })
+          if (mounted) {
+            setCollections(response.items)
+            setCollectionsCursor(response.nextCursor)
+            setCollectionsHasMore(!!response.nextCursor)
+            setCollectionsTotal(response.total ?? null)
+            setCollectionsStatus("idle")
+          }
+        } catch (error) {
+          console.error("Failed to load collections", error)
+          if (mounted) {
+            setCollectionsStatus("error")
+          }
         }
       }
-    }
 
-    loadCollections()
+      loadCollections()
+    }, 300)
 
     return () => {
       mounted = false
+      clearTimeout(timer)
     }
-  }, [])
+  }, [collectionSearchQuery])
 
   // Load more authors
   const loadMoreAuthors = useCallback(async () => {
@@ -105,7 +136,13 @@ export default function SourcesPage() {
 
     setLoadingMoreAuthors(true)
     try {
-      const response = await fetchAuthorsWithContentCount({ size: PAGE_SIZE, cursor: authorsCursor })
+      const response = await fetchAuthorsWithContentCount({
+        size: PAGE_SIZE,
+        cursor: authorsCursor,
+        sortBy: "display_name",
+        sortOrder: "asc",
+        search: authorSearchQuery || undefined,
+      })
       setAuthors((prev) => [...prev, ...response.items])
       setAuthorsCursor(response.nextCursor)
       setAuthorsHasMore(!!response.nextCursor)
@@ -114,7 +151,7 @@ export default function SourcesPage() {
     } finally {
       setLoadingMoreAuthors(false)
     }
-  }, [authorsCursor, authorsHasMore, loadingMoreAuthors])
+  }, [authorsCursor, authorsHasMore, loadingMoreAuthors, authorSearchQuery])
 
   // Load more collections
   const loadMoreCollections = useCallback(async () => {
@@ -122,7 +159,13 @@ export default function SourcesPage() {
 
     setLoadingMoreCollections(true)
     try {
-      const response = await fetchCollectionsWithContentCount({ size: PAGE_SIZE, cursor: collectionsCursor })
+      const response = await fetchCollectionsWithContentCount({
+        size: PAGE_SIZE,
+        cursor: collectionsCursor,
+        sortBy: "name",
+        sortOrder: "asc",
+        search: collectionSearchQuery || undefined,
+      })
       setCollections((prev) => [...prev, ...response.items])
       setCollectionsCursor(response.nextCursor)
       setCollectionsHasMore(!!response.nextCursor)
@@ -131,7 +174,7 @@ export default function SourcesPage() {
     } finally {
       setLoadingMoreCollections(false)
     }
-  }, [collectionsCursor, collectionsHasMore, loadingMoreCollections])
+  }, [collectionsCursor, collectionsHasMore, loadingMoreCollections, collectionSearchQuery])
 
   // Setup IntersectionObserver for authors infinite scroll
   useEffect(() => {
@@ -186,7 +229,13 @@ export default function SourcesPage() {
   const handleRetryAuthors = async () => {
     setAuthorsStatus("loading")
     try {
-      const response = await fetchAuthorsWithContentCount({ size: PAGE_SIZE, includeTotal: true })
+      const response = await fetchAuthorsWithContentCount({
+        size: PAGE_SIZE,
+        includeTotal: true,
+        sortBy: "display_name",
+        sortOrder: "asc",
+        search: authorSearchQuery || undefined,
+      })
       setAuthors(response.items)
       setAuthorsCursor(response.nextCursor)
       setAuthorsHasMore(!!response.nextCursor)
@@ -201,7 +250,13 @@ export default function SourcesPage() {
   const handleRetryCollections = async () => {
     setCollectionsStatus("loading")
     try {
-      const response = await fetchCollectionsWithContentCount({ size: PAGE_SIZE, includeTotal: true })
+      const response = await fetchCollectionsWithContentCount({
+        size: PAGE_SIZE,
+        includeTotal: true,
+        sortBy: "name",
+        sortOrder: "asc",
+        search: collectionSearchQuery || undefined,
+      })
       setCollections(response.items)
       setCollectionsCursor(response.nextCursor)
       setCollectionsHasMore(!!response.nextCursor)
@@ -267,6 +322,28 @@ export default function SourcesPage() {
       {/* Authors Tab */}
       {activeTab === "authors" && (
         <>
+          {/* Search bar */}
+          <div className="mb-4">
+            <div className="relative max-w-md">
+              <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
+              <Input
+                type="text"
+                placeholder="Search authors (by handle)..."
+                value={authorSearchQuery}
+                onChange={(e) => setAuthorSearchQuery(e.target.value)}
+                className="pl-9"
+              />
+            </div>
+            {!isAuthorsLoading && authorsTotal !== null && (
+              <div className="mt-2 text-xs text-slate-500">
+                {authorSearchQuery && (
+                  <span>{authors.length} results · </span>
+                )}
+                <span>{authorsTotal.toLocaleString()} total</span>
+              </div>
+            )}
+          </div>
+
           {isAuthorsLoading && (
             <div className="flex items-center justify-center py-12">
               <Loader2 className="h-8 w-8 animate-spin text-slate-400" />
@@ -332,6 +409,28 @@ export default function SourcesPage() {
       {/* Collections Tab */}
       {activeTab === "collections" && (
         <>
+          {/* Search bar */}
+          <div className="mb-4">
+            <div className="relative max-w-md">
+              <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
+              <Input
+                type="text"
+                placeholder="Search collections..."
+                value={collectionSearchQuery}
+                onChange={(e) => setCollectionSearchQuery(e.target.value)}
+                className="pl-9"
+              />
+            </div>
+            {!isCollectionsLoading && collectionsTotal !== null && (
+              <div className="mt-2 text-xs text-slate-500">
+                {collectionSearchQuery && (
+                  <span>{collections.length} results · </span>
+                )}
+                <span>{collectionsTotal.toLocaleString()} total</span>
+              </div>
+            )}
+          </div>
+
           {isCollectionsLoading && (
             <div className="flex items-center justify-center py-12">
               <Loader2 className="h-8 w-8 animate-spin text-slate-400" />

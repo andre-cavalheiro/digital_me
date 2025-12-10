@@ -388,7 +388,7 @@ export function SourcesFilterDialog({
                   <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
                   <Input
                     type="text"
-                    placeholder="Search authors..."
+                    placeholder="Search authors (by handle)..."
                     value={authorSearchQuery}
                     onChange={(e) => setAuthorSearchQuery(e.target.value)}
                     className="pl-9"
