@@ -218,32 +218,28 @@ autofix-unsafe:
 ################################################################################
 # Testing
 ################################################################################
-test-ci: export FURY_DB_URL = postgresql+psycopg://postgres:postgres@postgres:5432/postgres
-test-local: export FURY_DB_URL = postgresql+psycopg://postgres:postgres@127.0.0.1:5433/postgres
+TEST_DB_URL ?= postgresql+psycopg://postgres:postgres@127.0.0.1:5433/postgres
+TEST_DB_CONTAINER ?= fury_api_test_postgres
 
 .PHONY: test
 test:
-	@if [ "$(CI)" = "true" ]; then \
-		$(MAKE) test-ci; \
-	else \
-		$(MAKE) test-local; \
-	fi
-
-.PHONY: test-ci
-test-ci:
-	$(MAKE) FURY_DB_URL=$(FURY_DB_URL) db-migrate && \
-	$(POETRY) run pytest -vvv;
-
-.PHONY: test-local
-test-local:
-	echo "Starting PostgreSQL (pgvector) container on port 5433..."; \
-	docker run --rm --name my_test_postgres -e POSTGRES_USER=postgres -e POSTGRES_PASSWORD=postgres -e POSTGRES_DB=postgres -p 5433:5432 -d $(TEST_DB_IMAGE); \
-	trap "echo 'Stopping and removing PostgreSQL container...'; docker stop my_test_postgres; " INT EXIT; \
+	@echo "Starting PostgreSQL (pgvector) container on port 5433..."; \
+	docker run --rm --name $(TEST_DB_CONTAINER) -e POSTGRES_USER=postgres -e POSTGRES_PASSWORD=postgres -e POSTGRES_DB=postgres -p 5433:5432 -d $(TEST_DB_IMAGE); \
+	trap "echo 'Stopping and removing PostgreSQL container...'; docker stop $(TEST_DB_CONTAINER) >/dev/null" EXIT; \
 	echo "Waiting for PostgreSQL to start..."; \
-	sleep 2; \
-	docker exec -it my_test_postgres sh -c "pg_isready -U postgres -h localhost -p 5432 -t 30"; \
-	$(MAKE) FURY_DB_URL=$(FURY_DB_URL) db-migrate && \
-	$(POETRY) run pytest -vvv;
+	for i in $$(seq 1 30); do \
+		if docker exec $(TEST_DB_CONTAINER) pg_isready -U postgres -h localhost -p 5432 >/dev/null 2>&1; then \
+			echo 'PostgreSQL is ready'; \
+			break; \
+		fi; \
+		if [ $$i -eq 30 ]; then \
+			echo 'PostgreSQL did not become ready in time'; \
+			exit 1; \
+		fi; \
+		sleep 1; \
+	done; \
+	FURY_DB_URL=$(TEST_DB_URL) $(MAKE) db-migrate && \
+	FURY_DB_URL=$(TEST_DB_URL) $(POETRY) run pytest -vvv;
 
 
 ################################################################################

@@ -1,5 +1,6 @@
 # ruff: noqa: E402
 import os
+from urllib.parse import urlparse
 
 # import subprocess
 import pytest
@@ -12,6 +13,22 @@ os.environ["FURY_API_DEVEX_ON_CREATE_ORGANIZATION_SKIP_AUTH0_USER_CREATE"] = "tr
 os.environ["FURY_API_DEVEX_SKIP_AUTH0_USER_CREATE"] = "true"
 os.environ["FURY_API_DEVEX_ON_CREATE_ORGANIZATION_SKIP_DEFAULT_INTERNAL_USERS_VAULT_CREATION"] = "true"
 os.environ["FURY_API_EVENTS_API_USE_BACKGROUND_TASKS"] = "false"
+
+from fury_api.lib.settings import config  # noqa: E402
+
+# Guardrail: ensure tests run against the throwaway DB (default port 5433)
+_db_url = config.database.URL
+_parsed = urlparse(_db_url)
+_expected_port = int(os.getenv("FURY_TEST_DB_PORT", "5433"))
+_expected_hosts = {"127.0.0.1", "localhost"}
+print(f"[tests] Using database URL: {_db_url}")
+if os.getenv("ALLOW_NON_TEST_DB_URL") != "1":
+    if _parsed.port != _expected_port or _parsed.hostname not in _expected_hosts:
+        raise RuntimeError(
+            f"Refusing to run tests against non-throwaway DB: {_db_url} "
+            f"(expected host in {_expected_hosts} and port {_expected_port}). "
+            "Set ALLOW_NON_TEST_DB_URL=1 to override."
+        )
 
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
