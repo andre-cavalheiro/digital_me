@@ -10,6 +10,7 @@ services:
     restart: "${DOCKER_RESTART_POLICY:-unless-stopped}"
     depends_on:
       - postgres
+      - redis
     volumes:
       - ./:/app
     ports:
@@ -28,6 +29,48 @@ services:
       FURY_DB_SCHEMA: platform
       FURY_API_ELASTIC_APM_ENABLED: "false"
       FURY_API_DEVEX_ENABLED: "true"
+      # Celery
+      FURY_CELERY_BROKER_URL: redis://redis:6379/0
+      FURY_CELERY_RESULT_BACKEND_URL: redis://redis:6379/1
+
+  redis:
+    image: redis:7-alpine
+    container_name: fury-redis
+    restart: "${DOCKER_RESTART_POLICY:-unless-stopped}"
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis-data:/data
+    networks:
+      - fury-network
+    command: redis-server --appendonly yes
+
+  celery-worker:
+    image: fury-api:latest
+    container_name: fury-celery-worker
+    build:
+      context: .
+      dockerfile: deploy/docker/fury_api.Dockerfile
+    restart: "${DOCKER_RESTART_POLICY:-unless-stopped}"
+    depends_on:
+      - postgres
+      - redis
+    volumes:
+      - ./:/app
+    networks:
+      - fury-network
+    environment:
+      # Database
+      FURY_DB_URL: postgresql+psycopg://postgres:postgres@postgres:5432/digital-me-local
+      FURY_DB_SCHEMA: platform
+      # Celery
+      FURY_CELERY_BROKER_URL: redis://redis:6379/0
+      FURY_CELERY_RESULT_BACKEND_URL: redis://redis:6379/1
+      # AI / OpenAI
+      FURY_AI_OPENAI_API_KEY: "${FURY_AI_OPENAI_API_KEY}"
+      # Other settings
+      FURY_API_APP_ENVIRONMENT: "dev"
+    command: celery -A fury_api.lib.celery_app worker --loglevel=info --queues=ai,datasync --concurrency=2
 
   postgres:
     image: pgvector/pgvector:pg15
@@ -50,4 +93,6 @@ networks:
 
 volumes:
   postgres-data:
+    driver: local
+  redis-data:
     driver: local

@@ -63,6 +63,31 @@ class MessagesService(SqlService[Message]):
             result = await self.session.execute(stmt, params)  # type: ignore[arg-type]
             return result.first() is not None
 
+    async def set_conversation_title_from_message(
+        self,
+        conversation_id: int,
+        message_content: str,
+        *,
+        organization_id: int | None = None,
+    ) -> None:
+        """
+        Normalize whitespace and truncate message content to set conversation title.
+        Only sets the title if it is currently empty/Untitled.
+        """
+        MAX_TITLE_LENGTH_FROM_FIRST_MESSAGE = 80
+
+        # Normalize whitespace and truncate
+        normalized = " ".join(message_content.split()).strip()
+        if not normalized:
+            return None
+
+        truncated = normalized[:MAX_TITLE_LENGTH_FROM_FIRST_MESSAGE]
+        await self.set_conversation_title_if_empty(
+            conversation_id,
+            truncated,
+            organization_id=organization_id,
+        )
+
     @with_uow
     async def get_recent_by_conversation(
         self,

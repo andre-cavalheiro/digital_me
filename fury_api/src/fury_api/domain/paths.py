@@ -20,7 +20,6 @@ PLUGINS_ID = f"{PLUGINS}/{{id_}}"
 DOCUMENTS = "/documents"
 DOCUMENTS_ID = f"{DOCUMENTS}/{{id_}}"
 DOCUMENT_CONTENT = f"{DOCUMENTS_ID}/content"
-DOCUMENT_CONVERSATIONS = f"{DOCUMENTS_ID}/conversations"
 
 # Conversations
 CONVERSATIONS = "/conversations"

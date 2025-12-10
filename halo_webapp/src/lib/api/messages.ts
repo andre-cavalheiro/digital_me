@@ -52,6 +52,7 @@ export type AssistantStreamEvent = {
   conversation_id: number
   assistant_message_id?: number
   stage?: string
+  content?: string
 }
 
 export function subscribeToAssistantStream(

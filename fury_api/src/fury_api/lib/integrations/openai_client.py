@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from typing import Any
+from collections.abc import AsyncGenerator
 
 from openai import AsyncOpenAI
 
@@ -53,6 +54,27 @@ class OpenAIClient(BaseAIClient):
             usage=response.usage.model_dump() if response.usage else None,
             model=response.model,
         )
+
+    async def stream_chat(
+        self,
+        messages: list[ChatMessage],
+        *,
+        model: str | None = None,
+        temperature: float | None = None,
+        max_tokens: int | None = None,
+    ) -> AsyncGenerator[str, None]:
+        payload_messages: list[dict[str, Any]] = [{"role": m.role, "content": m.content} for m in messages]
+        stream = await self._client.chat.completions.create(
+            model=model or self._default_model,
+            messages=payload_messages,
+            temperature=temperature,
+            max_tokens=max_tokens,
+            stream=True,
+        )
+        async for chunk in stream:
+            content = chunk.choices[0].delta.content
+            if content:
+                yield content
 
     async def embed(self, text: str, *, model: str | None = None) -> list[float]:
         """Return a single embedding for the given text."""

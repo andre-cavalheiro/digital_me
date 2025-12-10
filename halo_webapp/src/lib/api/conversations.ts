@@ -46,7 +46,12 @@ export async function fetchDocumentConversations(documentId: number): Promise<Co
   return withMock(
     mockConversations.filter((c) => c.document_id === documentId),
     async () => {
-      const response = await api.get(`/documents/${documentId}/conversations`)
+      const response = await api.get("/conversations", {
+        params: {
+          filters: [`document_id:eq:${documentId}`],
+          sorts: "created_at:desc",
+        },
+      })
       const paginatedSchema = paginatedResponseSchema(conversationSchema)
       const parsed = paginatedSchema.parse(response.data)
       return parsed.items
@@ -64,7 +69,10 @@ export async function createDocumentConversation(documentId: number, payload: { 
       return created
     })(),
     async () => {
-      const response = await api.post(`/documents/${documentId}/conversations`, payload)
+      const response = await api.post("/conversations", {
+        ...payload,
+        document_id: documentId,
+      })
       return conversationSchema.parse(response.data)
     },
   )

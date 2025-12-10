@@ -49,6 +49,17 @@ class BaseAIClient:
     ) -> AIResponse:
         raise NotImplementedError
 
+    async def stream_chat(
+        self,
+        messages: list[ChatMessage],
+        *,
+        model: str | None = None,
+        temperature: float | None = None,
+        max_tokens: int | None = None,
+    ) -> Any:
+        """Stream the chat response token by token."""
+        raise NotImplementedError
+
     async def embed(self, text: str, *, model: str | None = None) -> list[float]:
         """Return a single embedding for the given text."""
         raise NotImplementedError

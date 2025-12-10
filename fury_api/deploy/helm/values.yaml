@@ -115,3 +115,62 @@ resources: {}
 nodeSelector: {}
 tolerations: []
 affinity: {}
+
+# Redis configuration
+# Used as Celery broker and result backend
+redis:
+  enabled: true
+  auth:
+    enabled: false
+  master:
+    persistence:
+      enabled: true
+      size: 8Gi
+  replica:
+    replicaCount: 1
+    persistence:
+      enabled: true
+      size: 8Gi
+
+# Celery Worker configuration
+# Background task processing for AI operations and data sync
+celeryWorker:
+  enabled: true
+  replicaCount: 2
+  logLevel: info
+  queues: ai,datasync
+  concurrency: 2
+
+  # Environment variables from external sources
+  # Inherits from main envFrom if not specified
+  envFrom: []
+
+  # Additional environment variables
+  env: []
+
+  # Resource limits and requests
+  resources:
+    requests:
+      memory: "512Mi"
+      cpu: "250m"
+    limits:
+      memory: "2Gi"
+      cpu: "1000m"
+
+  # Autoscaling configuration
+  autoscaling:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 10
+    targetCPUUtilizationPercentage: 70
+    # targetMemoryUtilizationPercentage: 80
+
+  # Pod-level configurations
+  podAnnotations: {}
+  podSecurityContext: {}
+  securityContext: {}
+
+  # Node and scheduling configurations
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}

@@ -22,6 +22,7 @@ __all__ = [
     "CommunityArchiveSettings",
     "AISettings",
     "OpenAISettings",
+    "CelerySettings",
     "load_settings",
     "config",
     "version",
@@ -323,6 +324,25 @@ class OpenAISettings(FuryBaseSettings):
     EMBEDDING_MODEL: str = "text-embedding-3-small"
 
 
+class CelerySettings(FuryBaseSettings):
+    """Celery configuration."""
+
+    model_config = build_settings_config("FURY_CELERY_")
+
+    BROKER_URL: str = "redis://localhost:6379/0"
+    RESULT_BACKEND_URL: str = "redis://localhost:6379/1"
+
+    TASK_TIME_LIMIT_SECONDS: int = 900
+    TASK_SOFT_TIME_LIMIT_SECONDS: int = 870
+    WORKER_MAX_TASKS_PER_CHILD: int = 1000
+    WORKER_DISABLE_RATE_LIMITS: bool = True
+    TASK_DEFAULT_RETRY_DELAY: int = 60
+    TASK_MAX_RETRIES: int = 3
+
+    QUEUE_ROUTE_AI: str = "ai"
+    QUEUE_ROUTE_DATA_SYNC: str = "datasync"
+
+
 @dataclass(frozen=True, kw_only=True, slots=True)
 class SettingsConfig:
     server: ServerSettings
@@ -339,6 +359,7 @@ class SettingsConfig:
     experimental: ExperimentalSettings
     ai: AISettings
     ai_openai: OpenAISettings
+    celery: CelerySettings
 
 
 _loaded_settings: SettingsConfig | None = None
@@ -366,6 +387,7 @@ def load_settings(force_reload: bool = False) -> SettingsConfig:
             experimental=ExperimentalSettings(),
             ai=AISettings(),
             ai_openai=OpenAISettings(),
+            celery=CelerySettings(),
         )
     except ValidationError as exc:
         print(f"Error loading settings: {exc}")

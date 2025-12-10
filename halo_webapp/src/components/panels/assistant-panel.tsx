@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { ArrowUp, Loader2, MessageSquarePlus, Plus, RotateCw, X } from "lucide-react"
 import { toast } from "sonner"
+import ReactMarkdown from "react-markdown"
+import remarkGfm from "remark-gfm"
 
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -110,6 +112,25 @@ export function AssistantPanel({ documentId, selectionText }: Props) {
       if (event.stage) {
         setStreamStage(event.stage)
       }
+      if (event.type === "delta" && event.assistant_message_id && event.content) {
+        setMessages((prev) => {
+          const index = prev.findIndex((m) => m.id === event.assistant_message_id)
+          if (index !== -1) {
+            // Update existing message
+            const newMessages = [...prev]
+            newMessages[index] = {
+              ...newMessages[index],
+              content: newMessages[index].content + event.content,
+            }
+            return newMessages
+          }
+          // If we don't have the message yet (rare race condition if SSE connects before POST returns),
+          // we could technically create a placeholder, but simpler to ignore until we have the shell.
+          // However, for better UX with optimistic updates, we might want to handle this.
+          // For now, let's assume the POST returns the shell quickly enough or we rely on the "completed" event refresh.
+          return prev
+        })
+      }
       if (event.type === "completed") {
         setStreamStage(null)
         void loadMessages(selectedConversationId)
@@ -184,16 +205,47 @@ export function AssistantPanel({ documentId, selectionText }: Props) {
         context.selection = { text: selectionText }
       }
 
-      await sendMessage(activeConversationId, {
+      // Optimistic user message
+      const optimisticUserMessage: Message = {
+        id: -1, // Temporary ID
+        conversation_id: activeConversationId,
+        role: "user",
+        content: trimmed,
+        created_at: new Date().toISOString(),
+        status: "completed",
+      }
+
+      // Optimistic assistant placeholder
+      const optimisticAssistantMessage: Message = {
+        id: -2, // Temporary ID, will be replaced by real one when stream starts or POST returns
+        conversation_id: activeConversationId,
+        role: "assistant",
+        content: "",
+        created_at: new Date().toISOString(),
+        status: "running",
+      }
+
+      setMessages((prev) => [...prev, optimisticUserMessage, optimisticAssistantMessage])
+      setInputValue("")
+      setAttachedSections([])
+      setAttachedSources([])
+      composerRef.current?.focus()
+
+      const sentMessage = await sendMessage(activeConversationId, {
         content: trimmed,
         role: "user",
         context_sources: Object.keys(context).length > 0 ? context : undefined,
       })
 
-      setInputValue("")
-      setAttachedSections([])
-      setAttachedSources([])
-      composerRef.current?.focus()
+      // Replace optimistic user message with real one
+      // And we rely on loadMessages or stream to update the assistant one.
+      // Actually, since sendMessage returns the user message, we can update that.
+      // The assistant message is created on the backend. We'll get its ID from the stream events hopefully or next fetch.
+      // But wait, `sendMessage` in FE returns `Message`. The backend `create_message` returns `created_user_message`.
+      // So we don't get the assistant message ID immediately from the POST response.
+      // We need to wait for the stream to give us the ID or reload messages.
+
+      // Let's just reload messages to get the real IDs and the initial empty assistant message.
       await loadMessages(activeConversationId)
     } catch (error) {
       console.error("Failed to send message", error)
@@ -520,6 +572,7 @@ function MessageBubble({ message }: { message: Message }) {
   const isAssistant = message.role !== "user"
   const timestamp = message.created_at ? new Date(message.created_at) : null
   const formattedTime = timestamp?.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+  const isStreaming = message.status && message.status !== "completed" && message.status !== "failed"
 
   return (
     <div className={cn("flex flex-col gap-1", isAssistant ? "items-start" : "items-end")}>
@@ -529,9 +582,20 @@ function MessageBubble({ message }: { message: Message }) {
           isAssistant ? "border-slate-200 bg-white text-foreground" : "border-sky-600 bg-sky-600 text-white",
         )}
       >
-        <p className="whitespace-pre-line break-words">{message.content}</p>
-        {message.status && message.status !== "completed" && (
-          <p className="mt-1 text-[10px] uppercase tracking-wide opacity-70">{message.status}</p>
+        {isAssistant && isStreaming && !message.content ? (
+          <div className="flex items-center gap-1 py-1 px-1">
+            <div className="h-1.5 w-1.5 animate-bounce rounded-full bg-sky-500 [animation-delay:-0.3s]" />
+            <div className="h-1.5 w-1.5 animate-bounce rounded-full bg-sky-500 [animation-delay:-0.15s]" />
+            <div className="h-1.5 w-1.5 animate-bounce rounded-full bg-sky-500" />
+          </div>
+        ) : isAssistant ? (
+          <div className="prose prose-sm max-w-none prose-neutral dark:prose-invert break-words [&>*:first-child]:mt-0 [&>*:last-child]:mb-0">
+            <ReactMarkdown remarkPlugins={[remarkGfm]}>
+              {message.content + (isStreaming ? "●" : "")}
+            </ReactMarkdown>
+          </div>
+        ) : (
+          <p className="whitespace-pre-line break-words">{message.content}</p>
         )}
       </div>
       <span className="text-[11px] uppercase tracking-wide text-muted-foreground">{formattedTime}</span>
