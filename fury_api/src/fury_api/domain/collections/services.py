@@ -82,6 +82,7 @@ class ContentCollectionsService(SqlService[ContentCollection]):
     ):
         super().__init__(ContentCollection, uow, auth_user=auth_user, **kwargs)
 
+    @with_uow
     async def link_content_to_collection(
         self,
         *,
@@ -100,28 +101,37 @@ class ContentCollectionsService(SqlService[ContentCollection]):
         Returns:
             The existing or newly created ContentCollection link
         """
-        # Check if link already exists
+        if self.organization_id is None:
+            raise ValueError("organization_id is required to link content to a collection")
+
+        collection = await self.uow.collections.get_by_id(self.session, collection_id)
+        if collection is None or collection.organization_id != self.organization_id:
+            raise ValueError(f"Collection {collection_id} not found for organization {self.organization_id}")
+
+        content = await self.uow.contents.get_by_id(self.session, content_id)
+        if content is None:
+            raise ValueError(f"Content {content_id} not found")
+
         query = select(ContentCollection).where(
             ContentCollection.organization_id == self.organization_id,
             ContentCollection.content_id == content_id,
             ContentCollection.collection_id == collection_id,
         )
 
-        result = await self.uow.session.execute(query)
+        result = await self.session.execute(query)
         existing_link = result.scalar_one_or_none()
-
         if existing_link:
             return existing_link
 
-        # Create new link
         link_data = ContentCollection(
             organization_id=self.organization_id,
             content_id=content_id,
             collection_id=collection_id,
         )
 
-        return await self.create_item(link_data)
+        return await self.repository.add(self.session, link_data)
 
+    @with_uow
     async def unlink_content_from_collection(
         self,
         *,
@@ -138,14 +148,16 @@ class ContentCollectionsService(SqlService[ContentCollection]):
         Returns:
             True if the link was removed, False if it didn't exist
         """
-        # Find the link
+        if self.organization_id is None:
+            raise ValueError("organization_id is required to unlink content from a collection")
+
         query = select(ContentCollection).where(
             ContentCollection.organization_id == self.organization_id,
             ContentCollection.content_id == content_id,
             ContentCollection.collection_id == collection_id,
         )
 
-        result = await self.uow.session.execute(query)
+        result = await self.session.execute(query)
         link = result.scalar_one_or_none()
 
         if not link:
@@ -154,6 +166,7 @@ class ContentCollectionsService(SqlService[ContentCollection]):
         await self.repository.delete(self.session, link.id)
         return True
 
+    @with_uow
     async def get_collections_for_content(self, content_id: int) -> list[int]:
         """
         Get all collection IDs that a piece of content belongs to.
@@ -169,9 +182,10 @@ class ContentCollectionsService(SqlService[ContentCollection]):
             ContentCollection.content_id == content_id,
         )
 
-        result = await self.uow.session.execute(query)
+        result = await self.session.execute(query)
         return list(result.scalars().all())
 
+    @with_uow
     async def get_content_for_collection(self, collection_id: int) -> list[int]:
         """
         Get all content IDs that belong to a collection.
@@ -187,5 +201,5 @@ class ContentCollectionsService(SqlService[ContentCollection]):
             ContentCollection.collection_id == collection_id,
         )
 
-        result = await self.uow.session.execute(query)
+        result = await self.session.execute(query)
         return list(result.scalars().all())

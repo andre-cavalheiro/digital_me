@@ -68,13 +68,34 @@ class ContentRepository(GenericSqlExtendedRepository[Content]):
 
             return subquery
 
+        def build_collection_condition(filter_: Filter):
+            if filter_.op == FilterOp.NEQ:
+                value = int(filter_.value) if not isinstance(filter_.value, int) else filter_.value
+                excluded = select(ContentCollection.content_id).where(
+                    ContentCollection.organization_id == organization_id,
+                    ContentCollection.collection_id == value,
+                )
+                return ~self._model_cls.id.in_(excluded)
+
+            if filter_.op == FilterOp.NOT_IN:
+                raw_values = filter_.value if isinstance(filter_.value, list) else [filter_.value]
+                values = [int(v) if not isinstance(v, int) else v for v in raw_values]
+                excluded = select(ContentCollection.content_id).where(
+                    ContentCollection.organization_id == organization_id,
+                    ContentCollection.collection_id.in_(values),
+                )
+                return ~self._model_cls.id.in_(excluded)
+
+            subquery = build_subquery(filter_)
+            return self._model_cls.id.in_(subquery)
+
         if combine_logic == FilterCombineLogic.AND:
             for filter_ in collection_filters:
-                query = query.where(self._model_cls.id.in_(build_subquery(filter_)))
+                query = query.where(build_collection_condition(filter_))
             return query, remaining_filters
 
         # OR combine logic: build one OR group across BOTH collection and remaining content filters
-        conditions = [self._model_cls.id.in_(build_subquery(f)) for f in collection_filters]
+        conditions = [build_collection_condition(f) for f in collection_filters]
         if remaining_filters:
             conditions.extend(SqlFilterAdapter.build_condition(self, f) for f in remaining_filters)
         if conditions:

@@ -14,8 +14,7 @@
                 "1",
                 "--plugin-id",
                 "29",
-                "--max-results",
-                "50",
+                "--no-fetch-all-bookmarks",
                 "--fetch-all",
             ],
             "console": "integratedTerminal",
@@ -51,6 +50,28 @@
                 "hidden": false,
                 "group": "",
                 "order": 1
+            }
+        },
+        {
+            "name": "Pytest: single file",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "pytest",
+            "args": [
+                "-s",
+                "tests/domain/content/test_complex_list.py"
+            ],
+            "cwd": "${workspaceFolder}/fury_api",
+            "python": "${workspaceFolder}/fury_api/.venv/bin/python",
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}/fury_api/src"
+            },
+            "console": "integratedTerminal",
+            "justMyCode": false,
+            "presentation": {
+                "hidden": false,
+                "group": "",
+                "order": 2
             }
         },
         {

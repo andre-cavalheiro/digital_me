@@ -171,6 +171,11 @@ async def create_test_dataset(
         tech = dataset["collections"][COLLECTION_TECH_IDX]
         first_content = dataset["content"][CONTENT_TECH_ALICE_IDX]
     """
+    import uuid
+
+    # Generate unique suffix for this test run to avoid ID collisions
+    run_id = str(uuid.uuid4())[:8]
+
     # Create authors from constants
     authors = []
     for author_def in ALL_AUTHORS:
@@ -178,7 +183,7 @@ async def create_test_dataset(
             authors_service,
             display_name=author_def["display_name"],
             handle=author_def["handle"],
-            external_id=author_def["external_id"],
+            external_id=f"{author_def['external_id']}-{run_id}",
         )
         authors.append(author)
 
@@ -187,8 +192,8 @@ async def create_test_dataset(
     for collection_def in ALL_COLLECTIONS:
         collection = await create_collection(
             client,
-            name=collection_def["name"],
-            external_id=collection_def["external_id"],
+            name=f"{collection_def['name']}-{run_id}",
+            external_id=f"{collection_def['external_id']}-{run_id}",
         )
         collections.append(collection)
 
@@ -204,7 +209,7 @@ async def create_test_dataset(
             body=content_def["body"],
             title=content_def["title"],
             author_id=author_id,
-            external_id=content_def["external_id"],
+            external_id=f"{content_def['external_id']}-{run_id}",
         )
         content_items.append(content)
 

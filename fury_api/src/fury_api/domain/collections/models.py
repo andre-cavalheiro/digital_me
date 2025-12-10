@@ -17,6 +17,7 @@ __all__ = [
     "ContentCollection",
     "AuthorContribution",
     "CollectionAuthorStatistics",
+    "ContentCollectionLinkRequest",
 ]
 
 
@@ -117,6 +118,12 @@ class ContentCollection(BigIntIDModel, table=True):
 
     created_at: datetime = Field(default_factory=datetime.utcnow, nullable=False)
     updated_at: datetime = Field(default_factory=datetime.utcnow, nullable=False)
+
+
+class ContentCollectionLinkRequest(BaseSQLModel):
+    """Payload to link a piece of content to a collection."""
+
+    content_id: int
 
 
 # ============================================================================

@@ -28,14 +28,14 @@ from tests.helpers.dataset_basic import (
 
 @pytest.mark.asyncio
 async def test_create_test_dataset(
-    bootstrap_org,
-    mocked_user_client: TestClient,
-    authors_service,
+    test_org,
+    isolated_client: TestClient,
+    isolated_authors_service,
 ):
     """Verify create_test_dataset creates normalized dataset using constants."""
     dataset = await create_test_dataset(
-        mocked_user_client,
-        authors_service,
+        isolated_client,
+        isolated_authors_service,
     )
 
     # Validate counts match constants
@@ -52,17 +52,17 @@ async def test_create_test_dataset(
     alice = dataset["authors"][AUTHOR_ALICE_IDX]
     bob = dataset["authors"][AUTHOR_BOB_IDX]
     assert alice["display_name"] == AUTHOR_ALICE["display_name"]
-    assert alice["external_id"] == AUTHOR_ALICE["external_id"]
+    assert alice["external_id"].startswith(AUTHOR_ALICE["external_id"])
     assert bob["display_name"] == AUTHOR_BOB["display_name"]
-    assert bob["external_id"] == AUTHOR_BOB["external_id"]
+    assert bob["external_id"].startswith(AUTHOR_BOB["external_id"])
 
     # Verify collections match constants
     tech = dataset["collections"][COLLECTION_TECH_IDX]
     science = dataset["collections"][COLLECTION_SCIENCE_IDX]
     art = dataset["collections"][COLLECTION_ART_IDX]
-    assert tech["name"] == COLLECTION_TECH["name"]
-    assert science["name"] == COLLECTION_SCIENCE["name"]
-    assert art["name"] == COLLECTION_ART["name"]
+    assert tech["name"].startswith(COLLECTION_TECH["name"])
+    assert science["name"].startswith(COLLECTION_SCIENCE["name"])
+    assert art["name"].startswith(COLLECTION_ART["name"])
 
     # Verify content matches constants
     content_tech_alice = dataset["content"][CONTENT_TECH_ALICE_IDX]

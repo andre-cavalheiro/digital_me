@@ -5,9 +5,9 @@ from tests.helpers.crud import create_collection
 
 
 @pytest.mark.asyncio
-async def test_create_collection_endpoint(bootstrap_org, mocked_user_client: TestClient):
+async def test_create_collection_endpoint(test_org, isolated_client: TestClient):
     """Verify create_collection returns dict."""
-    collection = await create_collection(mocked_user_client, name="Test Collection", external_id="test-collection-1")
+    collection = await create_collection(isolated_client, name="Test Collection", external_id="test-collection-1")
 
     assert isinstance(collection, dict)
     assert collection["id"] is not None

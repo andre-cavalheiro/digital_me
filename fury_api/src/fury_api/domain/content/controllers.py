@@ -66,6 +66,7 @@ async def get_content_items(
     return await content_service.get_items_paginated(
         model_filters=filters_parser.filters,
         model_sorts=filters_parser.sorts,
+        filter_combine_logic=filters_parser.filter_logic,
         include_author=include_author,
     )
 
