@@ -552,6 +552,17 @@ class SqlSortAdapter(SqlAdapter):
         if sort.custom_order_mapping is not None:
             attr = case(sort.custom_order_mapping, value=attr)
 
+        # Avoid NULL comparison issues in keyset pagination by coalescing nullable datetimes.
+        try:
+            python_type = attr.type.python_type  # type: ignore[attr-defined]
+        except Exception:  # noqa: BLE001
+            python_type = None
+        if python_type is datetime:
+            # For descending (newest first) push NULLs to the end with the earliest possible timestamp.
+            # For ascending, push NULLs to the end with the latest possible timestamp.
+            fallback = datetime.min if sort.direction == "desc" else datetime.max
+            attr = func.coalesce(attr, fallback)
+
         if sort.direction is None:
             return query.order_by(attr)
         return query.order_by(getattr(attr, sort.direction)())
