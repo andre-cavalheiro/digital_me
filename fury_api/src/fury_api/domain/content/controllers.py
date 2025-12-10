@@ -40,6 +40,7 @@ CONTENTS_FILTERS_DEFINITION = ModelFilterAndSortDefinition(
         "collection_id": get_default_ops_for_type(int),
     },
     allowed_sorts={"id", "author_id", "published_at", "synced_at", "created_at"},
+    custom_field_types={"collection_id": int},
 )
 
 

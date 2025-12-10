@@ -34,12 +34,14 @@ class ModelFilterAndSortDefinition:
         *,
         custom_fields_map: dict[str, str] | None = None,
         enable_model_aliases: bool = True,
+        custom_field_types: dict[str, type] | None = None,
     ):
         self.model = model
         self.allowed_filters = allowed_filters or {}
         self.allowed_sorts = set(allowed_sorts or [])
 
         self.fields_map = custom_fields_map or {}
+        self.custom_field_types = custom_field_types or {}
         self._enable_model_aliases = enable_model_aliases
 
         if self._enable_model_aliases:
@@ -48,6 +50,9 @@ class ModelFilterAndSortDefinition:
     def get_field_type(self, field: str, path: list[str] | None = None) -> type | None:
         if field in self.fields_map:
             field = self.fields_map[field]
+
+        if field in self.custom_field_types:
+            return self.custom_field_types[field]
 
         return try_get_field_type(self.model, field, path)
 

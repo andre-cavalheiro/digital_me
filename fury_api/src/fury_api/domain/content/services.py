@@ -154,10 +154,9 @@ class ContentsService(SqlService[Content]):
         return [
             ContentRead.model_validate(
                 {
-                    **item.model_dump(),
+                    **item.model_dump(exclude={"embedding"}),
                     "author": authors_map.get(item.author_id) if item.author_id else None,
-                },
-                from_attributes=True,
+                }
             )
             for item in content_items
         ]

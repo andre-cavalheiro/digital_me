@@ -290,6 +290,52 @@ class TestCollectionIDNotInNeq:
         assert dataset["content"][CONTENT_ART_ANONYMOUS_IDX]["externalId"] not in external_ids
 
 
+class TestValidationErrors:
+    """Validation coverage for malformed filter values."""
+
+    @pytest.mark.asyncio
+    async def test_collection_eq_non_numeric_returns_400(
+        self, test_org, isolated_client: TestClient, isolated_authors_service
+    ):
+        """Invalid collection_id value should trigger 400, not parsing fallback."""
+        await create_test_dataset(isolated_client, isolated_authors_service)
+
+        generic_http_call(
+            isolated_client,
+            "/api/v1/content?filters=collection_id:eq:not-a-number",
+            "get",
+            expected_status_code=400,
+        )
+
+    @pytest.mark.asyncio
+    async def test_collection_in_mixed_tokens_returns_400(
+        self, test_org, isolated_client: TestClient, isolated_authors_service
+    ):
+        """Mixed list tokens must reject whole request."""
+        await create_test_dataset(isolated_client, isolated_authors_service)
+
+        generic_http_call(
+            isolated_client,
+            "/api/v1/content?filters=collection_id:in:123,abc",
+            "get",
+            expected_status_code=400,
+        )
+
+    @pytest.mark.asyncio
+    async def test_author_eq_non_numeric_returns_400(
+        self, test_org, isolated_client: TestClient, isolated_authors_service
+    ):
+        """Generic filter parsing should 400 on non-numeric author_id."""
+        await create_test_dataset(isolated_client, isolated_authors_service)
+
+        generic_http_call(
+            isolated_client,
+            "/api/v1/content?filters=author_id:eq:abc",
+            "get",
+            expected_status_code=400,
+        )
+
+
 class TestMissingOrgContext:
     """Test missing organization context with collection_id."""
 
@@ -365,6 +411,22 @@ class TestIncludeAuthor:
         assert "total" in response
         assert "items" in response
         assert len(response["items"]) == 2
+
+    @pytest.mark.asyncio
+    async def test_include_author_total_matches_unique_items_across_pages(
+        self, test_org, isolated_client: TestClient, isolated_authors_service
+    ):
+        """Total remains stable across pages and items do not repeat."""
+        await create_test_dataset(isolated_client, isolated_authors_service)
+        base_endpoint = "/api/v1/content?include=author&size=1&includeTotal=true"
+
+        first_page = generic_http_call(isolated_client, base_endpoint, "get", expected_status_code=200)
+        all_items = _collect_all_items(isolated_client, base_endpoint)
+
+        external_ids = [item["externalId"] for item in all_items]
+
+        assert first_page["total"] == len(all_items)
+        assert len(external_ids) == len(set(external_ids))
 
 
 class TestSortWithFilters:
