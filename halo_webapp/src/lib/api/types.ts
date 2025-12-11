@@ -274,3 +274,10 @@ export interface PluginRead {
   title: string
   properties?: Record<string, any>
 }
+
+export interface TaskInfo {
+  task_id: string
+  task_name: string
+  organization_id: number
+  queue: string
+}

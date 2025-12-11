@@ -14,7 +14,10 @@ import { PageHeader } from "@/components/ui/page-header"
 import { PLUGIN_DATA_SOURCES } from "@/lib/plugin-data-sources"
 import { startXOauth } from "@/lib/integrations/x/oauth"
 
+import { useRouter } from "next/navigation"
+
 export default function PluginsPage() {
+  const router = useRouter()
   const [plugins, setPlugins] = useState<Plugin[]>([])
   const [loading, setLoading] = useState(true)
   const [installingPlugin, setInstallingPlugin] = useState<string | null>(null)
@@ -257,9 +260,10 @@ export default function PluginsPage() {
                       <Tooltip>
                         <TooltipTrigger asChild>
                           <Button
-                            className="w-full cursor-default bg-emerald-500 text-white border-emerald-500 hover:bg-emerald-500 font-medium"
+                            className="w-full cursor-pointer bg-emerald-500 text-white border-emerald-500 hover:bg-emerald-600 font-medium transition-colors"
+                            onClick={() => router.push(`/plugins/${plugin.id}`)}
                           >
-                            Active
+                            Manage
                           </Button>
                         </TooltipTrigger>
                         <TooltipContent>

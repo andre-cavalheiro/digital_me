@@ -84,12 +84,13 @@ export interface FetchCollectionsParams {
   offset?: number
   platform?: string
   type?: string
+  pluginId?: number
   sortBy?: "created_at" | "name" | "last_synced_at"
   sortOrder?: "asc" | "desc"
 }
 
 export async function fetchCollections(params: FetchCollectionsParams = {}): Promise<Collection[]> {
-  const { limit = 20, offset = 0, platform, type, sortBy = "name", sortOrder = "asc" } = params
+  const { limit = 20, offset = 0, platform, type, pluginId, sortBy = "name", sortOrder = "asc" } = params
 
   const queryParams: Record<string, string | string[]> = {
     size: String(limit),
@@ -105,6 +106,9 @@ export async function fetchCollections(params: FetchCollectionsParams = {}): Pro
   }
   if (type) {
     filters.push(`type:eq:${type}`)
+  }
+  if (pluginId) {
+    filters.push(`plugin_id:eq:${pluginId}`)
   }
 
   if (filters.length > 0) {

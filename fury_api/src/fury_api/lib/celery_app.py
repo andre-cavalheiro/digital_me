@@ -6,8 +6,10 @@ celery_app = Celery(
     broker=config.celery.BROKER_URL,
     backend=config.celery.RESULT_BACKEND_URL,
     include=[
-        "fury_api.domain.jobs.tasks.ai_tasks",
-        "fury_api.domain.jobs.tasks.datasync_tasks",
+        "fury_api.domain.jobs.tasks.ai.generate_assistant_response",
+        "fury_api.domain.jobs.tasks.datasync.fetch_all_x_bookmarks",
+        "fury_api.domain.jobs.tasks.datasync.sync_x_bookmark_folders",
+        "fury_api.domain.jobs.tasks.datasync.fetch_x_bookmark_folder_content",
     ],
 )
 
@@ -36,4 +38,4 @@ celery_app.conf.update(
 )
 
 # Import tasks to register them
-from fury_api.domain.jobs.tasks import ai_tasks, datasync_tasks  # noqa: E402, F401
+from fury_api.domain.jobs.tasks import ai, datasync  # noqa: E402, F401

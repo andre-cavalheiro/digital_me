@@ -1,6 +1,6 @@
 import asyncio
 from fury_api.lib.celery_app import celery_app
-from .base import FuryBaseTask
+from ..base import FuryBaseTask
 
 
 @celery_app.task(

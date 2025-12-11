@@ -35,10 +35,12 @@ COLLECTIONS_FILTERS_DEFINITION = ModelFilterAndSortDefinition(
     model=Collection,
     allowed_filters={
         "id": get_default_ops_for_type(Identifier),
-        "platform_type": get_default_ops_for_type(str),
+        "type": get_default_ops_for_type(str),
+        "platform": get_default_ops_for_type(str),
         "name": get_default_ops_for_type(str),
+        "plugin_id": get_default_ops_for_type(int),
     },
-    allowed_sorts={"id", "platform_type", "name", "created_at"},
+    allowed_sorts={"id", "type", "platform", "name", "created_at"},
 )
 
 

@@ -64,3 +64,19 @@ export async function deletePlugin(id: number): Promise<void> {
 
   await api.delete(`/plugins/${id}`)
 }
+
+/**
+ * Trigger a background job for a plugin
+ */
+export async function triggerPluginJob(id: number, jobType: string, jobParams: Record<string, any> = {}): Promise<any> {
+  if (process.env.NEXT_PUBLIC_USE_MOCKS === "true") {
+    console.log("Mock: triggering plugin job", { id, jobType, jobParams })
+    return { task_id: "mock-task-id" }
+  }
+
+  const response = await api.post(`/plugins/${id}/trigger-job`, {
+    job_type: jobType,
+    job_params: jobParams,
+  })
+  return response.data
+}

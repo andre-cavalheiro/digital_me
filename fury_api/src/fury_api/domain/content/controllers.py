@@ -132,7 +132,7 @@ async def create_content_items(
         payload = item.model_dump(by_alias=True, exclude_unset=True, exclude_none=True)
         items.append(Content.model_validate(payload))
 
-    return await content_service.create_items_with_results(items)
+    return await content_service.create_items_with_insertion_results(items)
 
 
 @content_router.delete(paths.CONTENTS_ID, status_code=status.HTTP_204_NO_CONTENT)

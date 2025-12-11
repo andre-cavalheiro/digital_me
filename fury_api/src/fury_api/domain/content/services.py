@@ -1,5 +1,6 @@
 from typing import TYPE_CHECKING, Any
 from collections.abc import Iterable, Sequence
+from datetime import datetime, timezone
 
 import sqlalchemy as sa
 from sqlalchemy import select
@@ -212,11 +213,11 @@ class ContentsService(SqlService[Content]):
         *,
         ai_client: BaseAIClient | None = None,
     ) -> int:
-        result = await self.create_items_with_results(items, ai_client=ai_client)
+        result = await self.create_items_with_insertion_results(items, ai_client=ai_client)
         return len(result.created)
 
     @with_uow
-    async def create_items_with_results(
+    async def create_items_with_insertion_results(
         self,
         items: list[Content],
         *,
@@ -255,3 +256,80 @@ class ContentsService(SqlService[Content]):
 
         query = select(self._model_cls).where(self._model_cls.external_id.in_(external_ids))
         return await self.repository.list(self.session, query=query)
+
+    def convert_x_content_payload(
+        self,
+        post: Any,
+        author_id: int,
+    ) -> Content:
+        """Convert X post object to Content model."""
+        # For long-form tweets (>280 chars), use note_tweet.text; otherwise use text
+        # Handle case where note_tweet might be None or attribute missing if dict passed
+        if hasattr(post, "note_tweet") and post.note_tweet:
+            body = post.note_tweet.text
+        else:
+            body = post.text
+
+        body = body or ""
+
+        # Excerpt should be truncated for display (limit to 280 chars)
+        excerpt = body[:280] + "..." if len(body) > 280 else body
+
+        # Extract quoted tweet data if this is a quote tweet
+        extra_fields = None
+        if getattr(post, "is_quote", False) and getattr(post, "quoted_tweet", None):
+            qt = post.quoted_tweet
+
+            if hasattr(qt, "note_tweet") and qt.note_tweet:
+                quoted_text = qt.note_tweet.text
+            else:
+                quoted_text = qt.text
+            quoted_text = quoted_text or ""
+
+            qt_author = getattr(qt, "author", None)
+
+            extra_fields = {
+                "quoted_tweet": {
+                    "id": qt.id,
+                    "text": quoted_text,
+                    "author": {
+                        "id": qt_author.id if qt_author else None,
+                        "name": qt_author.name if qt_author else None,
+                        "username": qt_author.username if qt_author else None,
+                        "avatar_url": qt_author.profile_image_url if qt_author else None,
+                    }
+                    if qt_author
+                    else None,
+                    "created_at": qt.created_at.isoformat() if qt.created_at else None,
+                    "url": qt.tweet_url if hasattr(qt, "tweet_url") else None,
+                }
+            }
+
+        # Store platform metadata (keep quoted_tweet_id for reference)
+        # Clean up redundant fields to avoid duplication/bloat
+        platform_metadata = post.model_dump() if hasattr(post, "model_dump") else {}
+
+        # Remove fields that are already mapped to the Content model or Author model
+        platform_metadata.pop("author", None)  # Stored in Author table
+        platform_metadata.pop("text", None)  # Stored in body
+        platform_metadata.pop("note_tweet", None)  # Stored in body
+
+        referenced_tweets = getattr(post, "referenced_tweets", []) or []
+        if getattr(post, "is_quote", False) and referenced_tweets:
+            quoted_ref = next((ref for ref in referenced_tweets if ref.type == "quoted"), None)
+            if quoted_ref:
+                platform_metadata["quoted_tweet_id"] = quoted_ref.id
+
+        return Content(
+            organization_id=self.organization_id,
+            author_id=author_id,
+            external_id=post.id,
+            external_url=getattr(post, "tweet_url", None),
+            title=None,
+            body=body,
+            excerpt=excerpt,
+            published_at=post.created_at,
+            synced_at=datetime.now(timezone.utc),
+            platform_metadata=platform_metadata,
+            extra_fields=extra_fields,
+        )

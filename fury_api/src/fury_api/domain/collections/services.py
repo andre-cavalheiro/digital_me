@@ -1,9 +1,13 @@
 from sqlalchemy import select
+from datetime import datetime, timezone
+from typing import Sequence
 
 from fury_api.lib.service import SqlService, with_uow
 from fury_api.lib.unit_of_work import UnitOfWork
 from fury_api.domain.users.models import User
-from .models import Collection, ContentCollection, CollectionAuthorStatistics
+from fury_api.domain.content.models import Content
+from fury_api.domain.content.enums import Platform
+from .models import Collection, CollectionType, ContentCollection, CollectionAuthorStatistics, CollectionUpdate
 from .repository import CollectionsRepository, ContentCollectionsRepository
 
 __all__ = ["CollectionsService", "ContentCollectionsService"]
@@ -65,6 +69,59 @@ class CollectionsService(SqlService[Collection]):
             total_content_count=total_count,
             unique_author_count=len(contributors),
             contributors=contributors,
+        )
+
+    @with_uow
+    async def get_or_create_platform_collection(
+        self,
+        *,
+        platform: str,
+        type: str,
+        name: str,
+        external_id: str,
+        plugin_id: int | None = None,
+        description: str | None = None,
+    ) -> Collection:
+        """Get or create a collection for a specific platform."""
+        collection = await self.get_by_platform_name(
+            platform=platform,
+            name=name,
+        )
+
+        now = datetime.now(timezone.utc)
+        if collection is None:
+            collection = await self.create_item(
+                Collection.model_validate(
+                    {
+                        "type": type,
+                        "platform": platform,
+                        "name": name,
+                        "external_id": external_id,
+                        "description": description,
+                        "collection_url": None,
+                        "plugin_id": plugin_id,
+                        "organization_id": self.organization_id,
+                        "last_synced_at": now,
+                    }
+                )
+            )
+        else:
+            await self.update_item(collection.id, CollectionUpdate(last_synced_at=now))
+
+        return collection
+
+    @with_uow
+    async def get_or_create_all_x_bookmarks_collection(
+        self,
+        plugin_id: int,
+    ) -> Collection:
+        """Ensure the 'My X Bookmarks' super-collection exists."""
+        return await self.get_or_create_platform_collection(
+            platform=Platform.X.value,
+            type=CollectionType.ALL_BOOKMARKS.value,
+            name="My X Bookmarks",
+            external_id=f"{Platform.X.value}:{CollectionType.ALL_BOOKMARKS.value}",
+            plugin_id=plugin_id,
         )
 
 
@@ -130,6 +187,24 @@ class ContentCollectionsService(SqlService[ContentCollection]):
         )
 
         return await self.repository.add(self.session, link_data)
+
+    @with_uow
+    async def link_items_to_collection(
+        self,
+        items: Sequence[Content],
+        collection_id: int,
+    ) -> None:
+        """Link multiple content items to a collection efficiently."""
+        if not items:
+            return
+
+        for item in items:
+            if item.id is None:
+                continue
+            await self.link_content_to_collection(
+                content_id=item.id,
+                collection_id=collection_id,
+            )
 
     @with_uow
     async def unlink_content_from_collection(

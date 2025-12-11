@@ -3,6 +3,7 @@ from __future__ import annotations
 import sqlalchemy as sa
 from datetime import datetime
 from typing import Any
+from enum import StrEnum
 
 from pydantic import AliasChoices, ConfigDict, Field as PydanticField
 from sqlmodel import Field
@@ -11,6 +12,7 @@ from fury_api.lib.db.base import BaseSQLModel, BigIntIDModel
 
 __all__ = [
     "Collection",
+    "CollectionType",
     "CollectionRead",
     "CollectionCreate",
     "CollectionUpdate",
@@ -19,6 +21,12 @@ __all__ = [
     "CollectionAuthorStatistics",
     "ContentCollectionLinkRequest",
 ]
+
+
+class CollectionType(StrEnum):
+    ALL_BOOKMARKS = "all_bookmarks"
+    BOOKMARK_FOLDER = "bookmark_folder"
+    # Add other collection types here
 
 
 # ============================================================================

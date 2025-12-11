@@ -15,6 +15,7 @@ ADMIN_ORGANIZATIONS = f"{ADMIN}/organizations"
 
 PLUGINS = "/plugins"
 PLUGINS_ID = f"{PLUGINS}/{{id_}}"
+PLUGINS_ID_TRIGGER_JOB = f"{PLUGINS_ID}/trigger-job"
 
 # Documents
 DOCUMENTS = "/documents"

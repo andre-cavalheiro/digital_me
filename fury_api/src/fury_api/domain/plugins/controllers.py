@@ -1,9 +1,11 @@
-from typing import Annotated
+from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Body
 
 from fury_api.domain import paths
 from fury_api.domain.users.models import User
+from fury_api.domain.jobs.services import JobsService
+from fury_api.domain.jobs.models import TaskInfo
 from fury_api.lib.dependencies import (
     FiltersAndSortsParser,
     ServiceType,
@@ -136,3 +138,57 @@ async def delete_item(
         await plugin_service.delete_item(plugin)
     except exceptions.PluginError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
+
+
+@plugin_router.post(paths.PLUGINS_ID_TRIGGER_JOB, response_model=TaskInfo, status_code=status.HTTP_202_ACCEPTED)
+async def trigger_plugin_job(
+    id_: int,
+    request: dict[str, Any] = Body(...),
+    plugin_service: PluginsService = Depends(
+        get_service(ServiceType.PLUGINS, read_only=True, uow=Depends(get_uow_tenant_ro))
+    ),
+    jobs_service: JobsService = Depends(lambda: JobsService()),
+) -> TaskInfo:
+    """Trigger a background job for a plugin."""
+    plugin = await plugin_service.get_item(id_)
+    if not plugin:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Plugin not found")
+
+    job_type = request.get("job_type")
+    job_params = request.get("job_params", {})
+
+    if not job_type:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="job_type is required")
+
+    # Map job types to Celery tasks
+    task_map = {
+        "x": {
+            "fetch_all_bookmarks": "datasync.x.bookmarks.fetch_all",
+            "sync_folders": "datasync.x.bookmark_folders.sync",
+            "fetch_folder_content": "datasync.x.bookmark_folders.fetch_content",
+        }
+    }
+
+    if plugin.data_source not in task_map:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail=f"No jobs available for data source '{plugin.data_source}'"
+        )
+
+    if job_type not in task_map[plugin.data_source]:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid job type '{job_type}' for {plugin.data_source}. Valid types: {', '.join(task_map[plugin.data_source].keys())}",
+        )
+
+    task_name = task_map[plugin.data_source][job_type]
+
+    # Merge default params with request params
+    params = {"plugin_id": plugin.id, **job_params}
+
+    # Validate required params for specific jobs
+    if job_type == "fetch_folder_content" and "collection_id" not in params:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="collection_id is required for fetch_folder_content job"
+        )
+
+    return jobs_service.push_task(task_name=task_name, organization_id=plugin.organization_id, **params)
