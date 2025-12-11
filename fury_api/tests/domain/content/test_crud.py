@@ -8,7 +8,9 @@ from tests.helpers.crud import create_author, create_content
 async def test_create_content_endpoint(test_org, isolated_client: TestClient, isolated_authors_service):
     """Verify create_content returns dict."""
     # Create author first
-    author = await create_author(isolated_authors_service, display_name="Content Author", external_id="content-author-1")
+    author = await create_author(
+        isolated_authors_service, display_name="Content Author", external_id="content-author-1"
+    )
 
     # Create content - normalized dict access
     content = await create_content(

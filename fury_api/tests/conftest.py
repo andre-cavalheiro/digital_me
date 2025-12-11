@@ -216,9 +216,7 @@ async def test_org(db_init: None) -> dict:
         org_id = org_data["id"]
 
         # Delete in order to respect foreign key constraints
-        await uow.session.execute(
-            text("DELETE FROM content_collection WHERE organization_id = :id"), {"id": org_id}
-        )
+        await uow.session.execute(text("DELETE FROM content_collection WHERE organization_id = :id"), {"id": org_id})
         await uow.session.execute(text("DELETE FROM collection WHERE organization_id = :id"), {"id": org_id})
         await uow.session.execute(
             text(

@@ -454,7 +454,9 @@ class TestNoFiltersFallback:
     """Test plain GET /content without filters."""
 
     @pytest.mark.asyncio
-    async def test_no_filters_returns_all_content(self, test_org, isolated_client: TestClient, isolated_authors_service):
+    async def test_no_filters_returns_all_content(
+        self, test_org, isolated_client: TestClient, isolated_authors_service
+    ):
         """Plain GET /content works without collection_id filter."""
         dataset = await create_test_dataset(isolated_client, isolated_authors_service)
 
